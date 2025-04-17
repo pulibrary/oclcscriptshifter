@@ -1,0 +1,395 @@
+'MacroName:Convert
+'MacroDescription:Convert a field using the ScriptShifter utility
+'Macro written by: Thomas Ventimiglia, Princeton University East Asian Library 
+'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+'Macro Created: 17 April 2025
+'Macro last modified: 17 April 2025
+'Macro version: 0.1.0
+
+Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
+Declare Function ValidateField(sStr As String) As String
+Declare Function GetHexCode(sStr As String)
+Declare Function ConvertHTMLEntities(sStr As String) As String
+Declare Function ConvertMARC8(sStr As String) As String
+Declare Function GetJSONField(sJSON As String, sField As String) As String
+Declare Function AdjustKorLangCode(sJSON As String, bIsName) As String
+Declare Sub GetLanguageList(ByRef aLangTable$())
+
+Global Const sSettingsFilename = "ScriptShifter.Settings.json"
+Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
+Global Const sLangEndpoint = "languages"
+Global Const sTransEndpoint = "trans"
+
+Sub Main
+   Dim CS As Object
+   On Error Resume Next
+   Set CS = GetObject( , "Connex.Client" )
+   On Error GoTo 0
+   If CS Is Nothing Then Set CS = CreateObject( "Connex.Client" )
+
+   ChDir Environ("AppData") & "\OCLC\Connex\Macros"
+   On Error GoTo MakeFile
+ReadJSON:
+   sJSON = ""
+   Open sSettingsFilename For Input As #1
+   While Not EOF(1)
+      sChar = Input$(1,#1)
+      sJSON = sJSON & sChar
+   Wend
+   sCfgLang = GetJSONField(sJSON,"lang")
+   sCfgCapitalization = GetJSONField(sJSON, "capitalize")
+   sCfgDirection = GetJSONField(sJSON, "t_dir")
+   sCfgAutoSelect = GetJSONField(sJSON, "autoselect")
+   Close #1
+   On Error Resume Next
+   Dim aLangTable$()
+   Call GetLanguageList(aLangTable$)
+   Goto Convert
+MakeFile:
+   CS.RunMacro("ScriptShifter!Settings")
+   Goto ReadJSON:
+Convert:
+   Dim sField As String           
+   bool = CS.GetFieldLineUnicode(CS.CursorRow, sField)
+   If bool = FALSE Then
+      MsgBox "Not viewing a MARC record. Exiting..."
+      Exit Sub
+   End If
+
+   'Replace EOP character in indicator fields with period
+   sField = ReplaceAll(sField, "&#x220E;",".")
+
+   'Normalize subfield delimiter 
+   sField = ReplaceAll(sField, "&#x01C2;",Chr(223))
+   
+   'Pull the tag name and indicators
+   NewField = Left(sField, 5)
+   sTag = Left(NewField, 3)
+   'The text of the field
+   sField = Mid(sField, 6)
+   sConvertedFields = ""
+
+   sLangCode = ""
+   If sCfgAutoSelect = "true" Then
+      sLangMARC = ""
+      bSuccess = CS.GetFixedField("Lang",sLangMARC)
+      sLangLength = 99
+      For i = 0 to UBound(aLangTable)
+         If (InStr(1,aLangTable(i,2),sLangMARC) > 0) And (Len(aLangTable(i,2)) < sLangLength) Then
+            sLangLength = Len(aLangTable(i,2))
+            sLangCode = aLangTable(i,1)
+         End If   
+      Next i   
+   End if
+   If sLangCode <> "" Then
+      sJSON = ReplaceAll(sJSON,sCfgLang,sLangCode)
+   End If
+   Do
+      sCurrentSubfield = sField
+      iDelimPos = InStr(2,sField,Chr(223))
+      If iDelimPos > 0 Then
+        sCurrentSubfield = Left(sField,iDelimPos-1)
+        sField = Mid(sField,iDelimPos)
+      End If
+   
+     
+      sSubfieldTag = ""
+      If Left(sCurrentSubfield,1) = Chr(223) Then
+         sSubfieldTag = Mid(sCurrentSubfield,2,1)
+         sCurrentSubfield = Mid(sCurrentSubfield,3)
+      End If
+
+
+      sSuffix = ""
+      sLastChar = Mid(sCurrentSubfield,Len(sCurrentSubfield))
+      Do While (sLastChar = " ") Or (sLastChar = ":") Or (sLastChar = ";" And Mid(sCurrentSubfield,Len(sCurrentSubfield)-1,1) = " ")
+         sSuffix = sLastChar & sSuffix
+         sCurrentSubfield = Left(sCurrentSubfield,Len(sCurrentSubfield)-1)
+         sLastChar = Mid(sCurrentSubfield,Len(sCurrentSubfield))
+
+      Loop
+      
+      If sSubfieldTag >= "0" And sSubfieldTag <= "9" Then
+         sResponse = sCurrentSubfield
+         GoTo AppendResponse            
+      End If
+
+      'TEMPORARY: If s2r, Skip subfields that do not contain HTML (i.e. likely already romanized)
+      If InStr(1,sJSON,"s2r") > 0 And InStr(1,sCurrentSubfield,"&#x") = 0 Then
+         sResponse = sCurrentSubfield
+         GoTo AppendResponse            
+      End If
+   
+   
+      sCurrentSubfield = ReplaceAll(sCurrentSubfield,Chr(34),"\" & Chr(34))
+      sCurrentSubfield = ConvertHTMLEntities(sCurrentSubfield) 
+      sCurrentSubfield = ConvertMARC8(sCurrentSubfield) 
+     
+      bIsName = False
+      If (sTag = "100" Or sTag = "600" Or sTag = "700" or sTag = "800") And (sSubfieldTag = "a" Or sSubfieldTag = "") Then
+            bIsName = True
+      End If
+      If InStr(1,sJSON,"korean") Then
+         sJSON = AdjustKorLangCode(sJSON,bIsName)
+      End If
+   
+      Dim oHTTP As Object
+      Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+      Dim sReqJSON As String
+      sReqJSON = sJSON
+      sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & LCase(sCurrentSubfield) & """,""lang")
+      oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
+      oHTTP.SetRequestHeader "Content-Type", "application/json"
+      oHTTP.Send(sReqJSON)
+
+      sResponse = oHTTP.ResponseText
+      sResponse = ReplaceAll(sResponse,"{""output"":""","")
+      sResponse = Left(sResponse,InStr(1,sResponse,""",""warnings")-1)
+      sResponse = ReplaceAll(sResponse, Chr(10),"")
+      sResponse = ReplaceAll(sResponse, "\" & Chr(34), Chr(34))
+   
+      If Trim(LCase(sResponse)) = Trim(LCase(sCurrentSubfield)) Then
+         sResponse = sCurrentSubfield
+         GoTo AppendResponse
+      End If   
+   
+      'Special name formatting
+      If bIsName And InStr(1,sJSON,"korean_names") > 0 Then
+        iSpacePos = InStr(1,sResponse," ")
+        If iSpacePos > 0 Then
+         sResponse = Left(sResponse,iSpacePos-1) & "," & Mid(sResponse,iSpacePos)
+        End If
+      End If
+   
+      iIndexLoc = Instr(1,sResponse,"\u") 
+      While(iIndexLoc > 0)
+         sResponse = Left(sResponse,iIndexLoc-1) & "&#x" & Mid(sResponse,iIndexLoc+2,4) & ";" & Mid(sResponse,iIndexLoc+6)
+         iIndexLoc = Instr(1,sResponse,"\u") 
+      Wend
+      
+AppendResponse:
+      If sSubfieldTag <> "" Then
+         sResponse = Chr(223) & sSubfieldTag & " " & Trim(sResponse)
+      End If
+      sResponse = Trim(sResponse) & sSuffix
+      sConvertedFields = sConvertedFields & sResponse
+   Loop While iDelimPos > 0
+   
+   errors = ValidateField(NewField)
+   If Len(errors) > 0 Then
+      MsgBox(errors)
+   End If
+      
+  'Restore EOP characters to tag and indicator fields
+  i = 5
+  Do While(i > 0)
+     If(Mid(NewField,i,1) = ".") Then
+         NewField = Left(NewField,i-1) & "&#x220E;" & Mid(NewField,i+1)
+     End If
+     i = i - 1
+  Loop
+
+   bool = CS.AddFieldLine(CS.CursorRow + 1, NewField & sConvertedFields)
+   CS.CursorRow = CS.CursorRow -1
+   CS.SendKeys "", -1
+   CS.SendKeys "%(ekl)", -1
+
+End Sub
+
+Function AdjustKorLangCode(sJSON As String, bIsName) As String
+   If bIsName = True Then
+      sJSON = ReplaceAll(sJSON,"korean_nonames","korean_names")
+   Else
+      sJSON = ReplaceAll(sJSON,"korean_names","korean_nonames")
+   End If
+   AdjustKorLangCode = sJSON
+End Function 
+
+Function ValidateField(sStr As String) As String
+   nLen = Len(sStr)
+   sResult = ""
+   pos = 1
+   For i = 6 to nLen
+      If Mid(sStr,i,8) Like "&[#]x[0-9A-F][0-9A-F][0-9A-F][0-9A-F];" Then
+         sNum = Mid(sStr,i,8)
+         nNum = GetHexCode(sNum)
+         i = i + 7
+      Else
+         nNum = Asc(Mid(sStr,i,1))
+         sNum = Val(nNum)        
+      End If
+      If Not((nNum > 0 And nNum < &H00FF&) Or nNum = &H0110& Or nNum = &H0111& Or nNum = &H0131& Or nNum = &H0141& Or nNum = &H0142& Or nNum = &H0152& Or nNum = &H0153& Or nNum = &H0300& Or nNum = &H0301& Or nNum = &H0302& Or nNum = &H0303& Or nNum = &H0304& Or nNum = &H0306& Or nNum = &H0307& Or nNum = &H0308& Or nNum = &H0309& Or nNum = &H0310& Or nNum = &H0313& Or nNum = &H0315& Or nNum = &H0323& Or nNum = &H0324& Or nNum = &H0325& Or nNum = &H0326& Or nNum = &H0327& Or nNum = &H0328& Or nNum = &H0332& Or nNum = &H0333& Or nNum = &H2113& Or nNum = &H2117& Or nNum = &H00A1& Or nNum = &H00A3& Or nNum = &H00A9& Or nNum = &H00AE& Or nNum = &H00B0& Or nNum = &H00B1& Or nNum = &H00B7& Or nNum = &H00BF& Or nNum = &H00C6& Or nNum = &H00D8& Or nNum = &H00DE& Or nNum = &H00DF& Or nNum = &H00F0& Or nNum = &H00F8& Or nNum = &H00FE& Or nNum = &H01A0& Or nNum = &H01A1& Or nNum = &H01AF& Or nNum = &H01B0& Or nNum = &H02B9& Or nNum = &H02BA& Or nNum = &H02BB& Or nNum = &H02BC& Or nNum = &H030A& Or nNum = &H030B& Or nNum = &H030C& Or nNum = &H031C& Or nNum = &H032E& Or nNum = &H266D& Or nNum = &H266F& Or nNum = &HFE20& Or nNum = &HFE21& Or nNum = &HFE22& Or nNum = &HFE23& Or nNum = &H01C2&) Then
+         sResult = sResult & "Invalid character in result at position " & pos
+         sResult = sResult & ": x" & Hex(nNum) & chr(10)
+      End If
+      pos = pos + 1
+   Next i
+   ValidateField = sResult
+End Function
+
+Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
+   place = 1
+   If InStr(place, sStr, sFind) Then
+      Do While InStr(place, sStr, sFind)
+          place = InStr(place, sStr, sFind)
+          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
+          place = place + Len(sReplace)
+      Loop
+   End If
+   ReplaceAll = sStr
+End Function
+
+Function GetHexCode(sChar As String) as Long
+   sHex = Mid(sChar, 4, 4)
+   nHex = Val("&H" & sHex & "&")
+   If nHex < 0 Then
+      nHex = nHex + &HFFFF& + 1
+   End If
+   GetHexCode = nHex 
+End Function
+
+Function ConvertMARC8(sStr As String) As String
+   sStr = ReplaceAll(sStr,Chr(136), "\u0098") 
+   sStr = ReplaceAll(sStr,Chr(137), "\u009C") 
+   sStr = ReplaceAll(sStr,Chr(141), "\u200D") 
+   sStr = ReplaceAll(sStr,Chr(142), "\u200C") 
+   sStr = ReplaceAll(sStr,Chr(161), "\u0141") 
+   sStr = ReplaceAll(sStr,Chr(162), "\u00D8") 
+   sStr = ReplaceAll(sStr,Chr(163), "\u0110") 
+   sStr = ReplaceAll(sStr,Chr(164), "\u00DE") 
+   sStr = ReplaceAll(sStr,Chr(165), "\u00C6") 
+   sStr = ReplaceAll(sStr,Chr(166), "\u0152") 
+   sStr = ReplaceAll(sStr,Chr(167), "\u02B9") 
+   sStr = ReplaceAll(sStr,Chr(168), "\u00B7") 
+   sStr = ReplaceAll(sStr,Chr(169), "\u266D") 
+   sStr = ReplaceAll(sStr,Chr(170), "\u00AE") 
+   sStr = ReplaceAll(sStr,Chr(171), "\u00B1") 
+   sStr = ReplaceAll(sStr,Chr(172), "\u01A0") 
+   sStr = ReplaceAll(sStr,Chr(173), "\u01AF") 
+   sStr = ReplaceAll(sStr,Chr(174), "\u02BC") 
+   sStr = ReplaceAll(sStr,Chr(176), "\u02BB") 
+   sStr = ReplaceAll(sStr,Chr(177), "\u0142") 
+   sStr = ReplaceAll(sStr,Chr(178), "\u00F8") 
+   sStr = ReplaceAll(sStr,Chr(179), "\u0111") 
+   sStr = ReplaceAll(sStr,Chr(180), "\u00FE") 
+   sStr = ReplaceAll(sStr,Chr(181), "\u00E6") 
+   sStr = ReplaceAll(sStr,Chr(182), "\u0153") 
+   sStr = ReplaceAll(sStr,Chr(183), "\u02BA") 
+   sStr = ReplaceAll(sStr,Chr(184), "\u0131")
+   sStr = ReplaceAll(sStr,Chr(185), "\u00A3")
+   sStr = ReplaceAll(sStr,Chr(186), "\u00F0") 
+   sStr = ReplaceAll(sStr,Chr(188), "\u01A1") 
+   sStr = ReplaceAll(sStr,Chr(189), "\u01B0")
+   sStr = ReplaceAll(sStr,Chr(192), "\u00B0") 
+   sStr = ReplaceAll(sStr,Chr(193), "\u2113") 
+   sStr = ReplaceAll(sStr,Chr(194), "\u2117") 
+   sStr = ReplaceAll(sStr,Chr(195), "\u00A9") 
+   sStr = ReplaceAll(sStr,Chr(196), "\u266F") 
+   sStr = ReplaceAll(sStr,Chr(197), "\u00BF") 
+   sStr = ReplaceAll(sStr,Chr(198), "\u00A1") 
+   sStr = ReplaceAll(sStr,Chr(199), "\u00DF") 
+   sStr = ReplaceAll(sStr,Chr(200), "\u20AC")  
+   sStr = ReplaceAll(sStr,Chr(224), "\u0309")  
+   sStr = ReplaceAll(sStr,Chr(225), "\u0300")  
+   sStr = ReplaceAll(sStr,Chr(226), "\u0301")  
+   sStr = ReplaceAll(sStr,Chr(227), "\u0302")  
+   sStr = ReplaceAll(sStr,Chr(228), "\u0303")  
+   sStr = ReplaceAll(sStr,Chr(229), "\u0304")  
+   sStr = ReplaceAll(sStr,Chr(230), "\u0306")  
+   sStr = ReplaceAll(sStr,Chr(231), "\u0307")  
+   sStr = ReplaceAll(sStr,Chr(232), "\u0308")  
+   sStr = ReplaceAll(sStr,Chr(233), "\u030C")  
+   sStr = ReplaceAll(sStr,Chr(234), "\u030A")  
+   sStr = ReplaceAll(sStr,Chr(235), "\u0361")  
+   sStr = ReplaceAll(sStr,Chr(236), "")  
+   sStr = ReplaceAll(sStr,Chr(237), "\u0315")  
+   sStr = ReplaceAll(sStr,Chr(238), "\u030B")  
+   sStr = ReplaceAll(sStr,Chr(239), "\u0310")   
+   sStr = ReplaceAll(sStr,Chr(240), "\u0327") 
+   sStr = ReplaceAll(sStr,Chr(241), "\u0328") 
+   sStr = ReplaceAll(sStr,Chr(242), "\u0323") 
+   sStr = ReplaceAll(sStr,Chr(243), "\u0324") 
+   sStr = ReplaceAll(sStr,Chr(244), "\u0325") 
+   sStr = ReplaceAll(sStr,Chr(245), "\u0333") 
+   sStr = ReplaceAll(sStr,Chr(246), "\u0332") 
+   sStr = ReplaceAll(sStr,Chr(247), "\u0326") 
+   sStr = ReplaceAll(sStr,Chr(248), "\u031C") 
+   sStr = ReplaceAll(sStr,Chr(249), "\u032E") 
+   sStr = ReplaceAll(sStr,Chr(250), "\u0360") 
+   sStr = ReplaceAll(sStr,Chr(251), "")
+   sStr = ReplaceAll(sStr,Chr(254), "\u0313") 
+
+   ConvertMARC8 = sStr
+End Function
+
+Function ConvertHTMLEntities(sStr As String) As String
+   iPos = InStr(1,sStr,"&#x")
+   While iPos > 0
+      sStr = Left(sStr,iPos-1) & "\u" & Mid(sStr,iPos+3,4) & Mid(sStr,iPos+8)   
+      iPos = InStr(1,sStr,"&#x") 
+   Wend
+   ConvertHTMLEntities = sStr
+End Function
+
+Function GetJSONField(sJSON As String, sField As String) As String
+   iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
+   sStr = sJSON
+   If iLoc > 0 Then
+      sStr = Mid(sStr,iLoc+Len(sField)+4)
+      sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
+      GetJSONField = sStr
+   Else
+      GetJSONField = ""
+   End If
+End Function
+
+Sub GetLanguageList(ByRef aLangTable$())
+   Dim oHTTP As Object
+   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+   
+   sURL = sScriptShifterURL & sLangEndpoint
+   
+   oHTTP.Open "GET", sURL, False
+   oHTTP.SetRequestHeader "Content-Type", "application/json"
+   oHTTP.Send
+   
+   sResponse = oHTTP.ResponseText
+   
+   iNextPos = InStr(1,sResponse,"},")
+   iCount = 0
+   While iNextPos > 0 
+      iCount = iCount+1
+      iNextPos = InStr(iNextPos+1,sResponse,"},")
+   Wend
+   
+   ReDim aLangList(iCount)
+   ReDim aLangTable(iCount,3)
+   
+   iCount = 0
+   Do 
+      sCurrentLang = sResponse
+      If iNextPos > 0 Then
+         sCurrentLang = Left(sResponse,iNextPos)
+         sResponse = Mid(sResponse,iNextPos+1)
+      End If
+      sCurrentLang = Mid(sCurrentLang, InStr(1,sCurrentLang,Chr(34))+1)
+      sDetails = Mid(sCurrentLang, InStr(1, sCurrentLang, "{"))
+      sCurrentLang = Left(sCurrentLang, InStr(1,sCurrentLang, Chr(34))-1)
+      
+      sLabel = sDetails
+      sLabel = Mid(sLabel,InStr(1,sLabel,"""label"":""")+9)
+      sLabel = Left(sLabel,InStr(1,sLabel,Chr(34))-1)
+      
+      sMARC = sDetails
+      sMARC = Mid(sMARC,InStr(1,sMARC,"""marc_code"":""")+13)
+      sMARC = Left(sMARC,InStr(1,sMARC,Chr(34))-1)
+      
+      aLangList(iCount) = sLabel
+      aLangTable(iCount,0) = sLabel
+      aLangTable(iCount,1) = sCurrentLang
+      aLangTable(iCount,2) = sMARC
+      iCount = iCount + 1
+      iNextPos = InStr(1,sResponse,"},")
+   Loop While iNextPos > 0
+End Sub

@@ -1,0 +1,344 @@
+'MacroName:Settings
+'MacroDescription:Settings
+
+Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
+Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
+Declare Function Row(iPos As Integer) As Integer
+Declare Function Column(iPos As Integer) As Integer
+Declare Function ControlWidth(iPos As Integer) As Integer
+Declare Function ControlHeight(iPos As Integer) As Integer
+Declare Sub GetLanguageList()
+Declare Function GetJSONField(sJSON As String, sField As String) As String
+Declare Sub SetLanguageOptions(sLangCode As String)
+
+Global Const RowHeight = 20
+Global Const ColumnWidth = 50   
+Global Const MarginSize = 10
+Global Const sSSURL = "https://bibframe.org/scriptshifter/"
+Global Const sLangEndpoint = "languages"
+Global Const sOptionsEndPoint = "options"
+Global Const sSettingsFilename = "ScriptShifter.Settings.json"
+Global Const sDefaultJSON = "{""lang"":""asian_cyrillic"",""autoselect"":""true"",""capitalize"":""first"",""t_dir"":""s2r"",""options"":{}}"
+
+Global sLangCode
+Global sLangLabel
+Global sLangMARC
+Global aLangTable$()
+Global aLangList$()
+Global aLangOptionsList$()
+Global aLangOptionsTable$()
+Global sCfgLang
+Global sCfgCapitalization
+Global sCfgDirection
+Global sCfgAutoSelect
+Global CS As Object
+Global oHTTP As Object
+
+Sub Main
+   On Error Resume Next
+   Set CS = GetObject( , "Connex.Client" )
+   On Error GoTo 0
+   If CS Is Nothing Then Set CS = CreateObject( "Connex.Client" )
+   
+   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+
+   ChDir Environ("AppData") & "\OCLC\Connex\Macros"
+   On Error GoTo MakeFile
+   Open sSettingsFilename For Input As #1
+ReadJSON:
+   sJSON = ""
+   While Not EOF(1)
+      sChar = Input$(1,#1)
+      sJSON = sJSON & sChar
+   Wend
+   sCfgLang = GetJSONField(sJSON,"lang")
+   sCfgCapitalization = GetJSONField(sJSON, "capitalize")
+   sCfgDirection = GetJSONField(sJSON, "t_dir")
+   sCfgAutoSelect = GetJSONField(sJSON, "autoselect")
+   Close #1
+   Goto LoadData
+MakeFile:
+   Close #1
+   Open sSettingsFilename For Output As #1
+   Print #1, sDefaultJSON
+   Close #1
+   Open sSettingsFilename For Input As #1
+   GoTo ReadJSON
+
+
+LoadData:   
+   sLangMARC = ""
+   bSuccess = CS.GetFixedField("Lang",sLangMARC)
+
+   Call GetLanguageList
+
+   sLangCode = ""
+   sLangLabel = ""
+
+   
+   If sCfgAutoSelect = "false" Then
+      For i = 0 to UBound(aLangTable$)
+         If sCfgLang = aLangTable$(i,1) Then
+            sLangCode = aLangTable$(i,1)
+            sLangLabel = aLangTable$(i,0)
+         End If   
+      Next i 
+   Else
+      sLangLength = 999
+      For i = 0 to UBound(aLangTable$)
+         If (InStr(1,aLangTable$(i,2),sLangMARC) > 0) And (Len(aLangTable$(i,2)) < sLangLength) And aLangTable$(i,1) <> "korean_names" Then
+            sLangLength = Len(aLangTable$(i,2))
+            sLangCode = aLangTable$(i,1)
+            sLangLabel = aLangTable$(i,0)
+         End If   
+      Next i   
+   End if
+   If sLangCode = "" Then
+      sLangCode = aLangTable$(0,1)
+      sLangLabel = aLangTable$(0,0)
+   End if
+
+   'SetLanguageOptions(sLangCode)
+   
+   
+   Begin Dialog SSDialog 1,1,Column(5), Row(6),"ScriptShifter Settings",.DialogFunc
+      Text Column(1), Row(1), ControlWidth(1), ControlHeight(1), "Language:"
+      DropListBox Column(2), Row(1), ControlWidth(2),ControlHeight(10),aLangList$(),.LangBox
+      
+      CheckBox Column(1),Row(2),ControlWidth(4),ControlHeight(1),"Auto-select language based on field 008",.AutoSelectLang
+      
+      Text Column(1),Row(3),ControlWidth(1),ControlHeight(1), "Direction:"
+      OptionGroup .Direction
+      OptionButton Column(2),Row(3),ControlWidth(1)*1.5,ControlHeight(1),"Script-to-Roman"
+      OptionButton Column(3)*1.1,Row(3),ControlWidth(1)*1.5,ControlHeight(1),"Roman-to-Script"
+      
+      Text Column(1), Row(4),ControlWidth(1),ControlHeight(1), "Capitalization:"
+      OptionGroup .Capitalization
+      OptionButton Column(2),Row(4),ControlWidth(1),ControlHeight(1),"No change"
+      OptionButton Column(3),Row(4),ControlWidth(1),ControlHeight(1),"First word"
+      OptionButton Column(4),Row(4),ControlWidth(1),ControlHeight(1),"All words"
+      
+      'Text Column(1),Row(5),ControlWidth(1),ControlHeight(1),"Options:"
+      'DropListBox Column(2),Row(5),ControlWidth(2),ControlHeight(3),aLangOptionsList$(),.OptionsBox
+      'Button Column(1),Row(6),ControlWidth(1),ControlHeight(1),"Set"
+      'TextBox Column(2),Row(6),ControlWidth(2),ControlHeight(1),.OptionsText
+      
+      OKButton  Column(1), Row(5), ControlWidth(1), ControlHeight(1)
+      CancelButton  Column(2), Row(5), ControlWidth(1), ControlHeight(1)
+   End Dialog
+   Dim dlg as SSDialog    
+On Error Resume Next
+   bResult = Dialog(dlg)
+   If bResult = 0 Then 'Cancel Button
+      Exit Sub
+   End If
+   'OK button
+   sSelectedLang = aLangTable$(dlg.LangBox,1)
+   sDirection = "s2r"
+   If dlg.Direction = 1 Then
+      sDirection = "r2s"
+   End If
+   sCapitalization = "no_change"
+   If dlg.Capitalization = 1 Then
+      sCapitalization = "first"
+   ElseIf dlg.Capitalization = 2 Then
+      sCapitalization = "all"
+   End If
+   sAutoSelect = "false"
+   If dlg.AutoSelectLang = 1 Then
+      sAutoSelect = "true"
+   End if 
+   sJSON = "{""lang"":""" & sSelectedLang & """,""autoselect"":""" & sAutoSelect & """,""capitalize"":""" & sCapitalization & """,""t_dir"":""" & sDirection & """,""options"":{}}"
+   'MsgBox sJSON
+   Open sSettingsFilename For Output As #1
+   Print #1, sJSON
+   Close #1
+End Sub
+
+Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
+   place = 1
+   If InStr(place, sStr, sFind) Then
+      Do While InStr(place, sStr, sFind)
+          place = InStr(place, sStr, sFind)
+          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
+          place = place + Len(sReplace)
+      Loop
+   End If
+   ReplaceAll = sStr
+End Function
+
+Sub GetLanguageList   
+   sURL = sSSURL & sLangEndpoint
+  
+   oHTTP.Open "GET", sURL, False
+   oHTTP.SetRequestHeader "Content-Type", "application/json"
+   oHTTP.Send
+   
+   sResponse = oHTTP.ResponseText
+   
+   iNextPos = InStr(1,sResponse,"},")
+   iCount = 0
+   While iNextPos > 0 
+      iCount = iCount+1
+      iNextPos = InStr(iNextPos+1,sResponse,"},")
+   Wend
+   
+   ReDim aLangList$(iCount)
+   ReDim aLangTable$(iCount,3)
+   
+   iCount = 0
+   Do 
+      sCurrentLang = sResponse
+      If iNextPos > 0 Then
+         sCurrentLang = Left(sResponse,iNextPos)
+         sResponse = Mid(sResponse,iNextPos+1)
+      End If
+      sCurrentLang = Mid(sCurrentLang, InStr(1,sCurrentLang,Chr(34))+1)
+      sDetails = Mid(sCurrentLang, InStr(1, sCurrentLang, "{"))
+      sCurrentLang = Left(sCurrentLang, InStr(1,sCurrentLang, Chr(34))-1)
+      
+      sLabel = sDetails
+      sLabel = Mid(sLabel,InStr(1,sLabel,"""label"":""")+9)
+      sLabel = Left(sLabel,InStr(1,sLabel,Chr(34))-1)
+      
+      sMARC = sDetails
+      sMARC = Mid(sMARC,InStr(1,sMARC,"""marc_code"":""")+13)
+      sMARC = Left(sMARC,InStr(1,sMARC,Chr(34))-1)      
+     
+      aLangList(iCount) = sLabel
+      aLangTable$(iCount,0) = sLabel
+      aLangTable$(iCount,1) = sCurrentLang
+      aLangTable$(iCount,2) = sMARC
+      iCount = iCount + 1
+      iNextPos = InStr(1,sResponse,"},")
+   Loop While iNextPos > 0
+End Sub
+
+Function DialogFunc%(DlgItem$, Action%, SuppValue&)
+   'Debug.Print "Action="&Action%
+   'Debug.Print DlgItem$&"=""";DlgText$(DlgItem$);""""
+   'Debug.Print "SuppValue="&SuppValue&
+   Select Case Action%
+   Case 1 ' Dialog box initialization
+      DlgText "LangBox",sLangLabel
+      If DlgText$("LangBox") <> sLangLabel Then
+         DlgValue "LangBox",DlgValue("LangBox")+1
+      End If
+      If sCfgAutoSelect = "true" Then
+         DlgValue "AutoSelectLang", 1
+      End If
+      If sCfgDirection = "r2s" Then
+         DlgValue "Direction", 1
+      End If
+      If sCfgCapitalization = "first" Then
+         DlgValue "Capitalization", 1
+      ElseIf sCfgCapitalization = "all" Then
+         DlgValue "Capitalization", 2
+      End If
+      'DlgText "OptionsText", aLangOptionsTable(0,1)
+   Case 2 ' Value changing or button pressed
+      If DlgItem$ = "LangBox" Then
+         sLangCode = aLangTable$(DlgValue(DlgItem$),1)
+         'SetLanguageOptions(sLangCode)
+         'DlgListBoxArray "OptionsBox", aLangOptionsList
+         'DlgValue "OptionsBox",0
+      End If
+      'If DlgItem$ = "OptionsBox" Or DlgItem$ = "LangBox" Then
+      '   sOptionValue = ""
+      '   If DlgItem = "OptionsBox" Then
+      '      sOptionName = DlgText$(DlgItem$)
+      '   Else
+      '      sOptionName = DlgText("OptionsBox")
+      '   End If
+      '   For i = 0 to UBound(aLangOptionsTable)
+      '     If sOptionName = aLangOptionsTable(i,0) Then
+      '       sOptionValue = aLangOptionsTable(i,1)
+      '     End If
+      '   Next i
+      '   DlgText "OptionsText", sOptionValue
+      'End If 
+   Case 3 ' TextBox or ComboBox text changed
+   Case 4 ' Focus changed
+   Case 5 ' Idle
+      'DialogFunc% = True 'do not exit the dialog
+   Case 6 ' Function key
+      'If SuppValue And &H100 Then Debug.Print "Shift-";
+      'If SuppValue And &H200 Then Debug.Print "Ctrl-";
+      'If SuppValue And &H400 Then Debug.Print "Alt-";
+      'Debug.Print "F" & (SuppValue And &HFF)
+   End Select
+End Function
+
+Function GetJSONField(sJSON As String, sField As String) As String
+   iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
+   sStr = sJSON
+   If iLoc > 0 Then
+      sStr = Mid(sStr,iLoc+Len(sField)+4)
+      sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
+      GetJSONField = sStr
+   Else
+      GetJSONField = ""
+   End If
+End Function
+
+Function Row(iPos As Integer) As Integer
+   Row = MarginSize*iPos + RowHeight*(iPos-1)
+End Function
+
+Function Column(iPos As Integer) As Integer
+   Column = MarginSize*iPos + ColumnWidth*(iPos-1)
+End Function
+
+Function ControlWidth(iPos As Integer) As Integer
+   ControlWidth = CInt((MarginSize*(iPos-1) + ColumnWidth*iPos)*1)
+End Function
+
+Function ControlHeight(iPos As Integer) As Integer
+   ControlHeight = CInt((MarginSize*(iPos-1) + RowHeight*iPos)*0.8)
+End Function
+
+Sub SetLanguageOptions(sLangCode As String)
+   sURL = sSSURL & sOptionsEndpoint & "/" & sLangCode
+  
+   oHTTP.Open "GET", sURL, False
+   oHTTP.SetRequestHeader "Content-Type", "application/json"
+   oHTTP.Send
+   
+   sJSON = oHTTP.ResponseText
+
+   Dim aElements() As String
+   sStr = sJSON
+   iNextPos = InStr(1,sStr,"},")
+   iCount = -1
+   While iNextPos > 0 
+      iCount = iCount+1
+      iNextPos = InStr(iNextPos+1,sStr,"{""default")
+   Wend
+   
+   If iCount = -1 Then
+      iCount = 0
+   End If
+   
+   ReDim aLangOptionsList(iCount)
+   ReDim aLangOptionsTable(iCount,2)
+
+   iCount = 0
+   sStr = Mid(sStr,2)
+   iNextPos  = InStr(3,sStr,"{""default")
+   Do 
+      If iNextPos = 0 Then
+         sCurrent = sStr
+         sStr = ""
+      Else
+         sCurrent = Left(sStr,iNextPos)
+         sStr = Mid(sStr,iNextPos)
+      End If
+      sLabel = GetJSONField(sCurrent,"id")
+      aLangOptionsList(iCount) = sLabel
+      aLangOptionsTable(iCount,0) = sLabel
+      sDefaultValue = GetJSONField(sCurrent,"default")
+      aLangOptionsTable(iCount,1) = sDefaultValue
+      iCount = iCount + 1
+      iNextPos = InStr(2,sStr,"{""default")
+   Loop While sStr <> ""
+End Sub
