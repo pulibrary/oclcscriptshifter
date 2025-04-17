@@ -30,6 +30,7 @@ SectionEnd
 ; Installer Section
 Section "-Install"
 
+SetOutPath "$INSTDIR"
 File "${mbkname}"
 
 SectionEnd
