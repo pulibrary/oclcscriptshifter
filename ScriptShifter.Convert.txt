@@ -4,8 +4,8 @@
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
-'Macro last modified: 17 April 2025
-'Macro version: 0.1.0
+'Macro last modified: 5 May 2025
+'Macro version: 0.1.1
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
@@ -138,7 +138,11 @@ Convert:
       Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
       Dim sReqJSON As String
       sReqJSON = sJSON
-      sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & LCase(sCurrentSubfield) & """,""lang")
+      If InStr(1,sReqJSON,"s2r") > 0 Then 
+         sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & sCurrentSubfield & """,""lang")
+      Else
+         sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & LCase(sCurrentSubfield) & """,""lang")
+      End If
       oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
       oHTTP.SetRequestHeader "Content-Type", "application/json"
       oHTTP.Send(sReqJSON)
@@ -169,6 +173,20 @@ Convert:
       Wend
       
 AppendResponse:
+      'TEMPORARY: Convert precomposed vowels to decomposed
+      'Korean
+      sResponse = ReplaceAll(sResponse,"&#x014e;","O&#x0306;")      
+      sResponse = ReplaceAll(sResponse,"&#x014f;","o&#x0306;")   
+      sResponse = ReplaceAll(sResponse,"&#x016c;","U&#x0306;")   
+      sResponse = ReplaceAll(sResponse,"&#x016d;","u&#x0306;") 
+      'Uighur
+      sResponse = ReplaceAll(sResponse,"&#x0102;","A&#x0306;")   
+      sResponse = ReplaceAll(sResponse,"&#x0103;","a&#x0306;") 
+      sResponse = ReplaceAll(sResponse,"&#x00d6;","O&#x0308;") 
+      sResponse = ReplaceAll(sResponse,"&#x00f6;","o&#x0308;") 
+      sResponse = ReplaceAll(sResponse,"&#x00dc;","U&#x0308;") 
+      sResponse = ReplaceAll(sResponse,"&#x00fc;","u&#x0308;") 
+
       If sSubfieldTag <> "" Then
          sResponse = Chr(223) & sSubfieldTag & " " & Trim(sResponse)
       End If
