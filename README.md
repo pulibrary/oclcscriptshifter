@@ -29,7 +29,7 @@ The following can be done for any or all of these macros:
 
 <img src="./img/settings.jpg"/>
 
-This settings panel will appear the first time you run the "Convert" macro.  (You can bring it back up by running the "Settings" macro).  If you already have a record open in Connexion, the language will be auto-detected from the 008 field, but you can select a different language in the language menu (and turn off auto-selection if desired).  Be sure to confirm the direction of the conversion (Script-to-Roman or Roman-to-Script) and the capitalization settings as well.  You do not need to re-open the settings panel each time you perform a conversion, unless you want to change these defaults.
+This settings panel will appear the first time you run the "Convert" macro.  (You can bring it back up by running the "Settings" macro).  If you already have a record open in Connexion, the language will be auto-detected from the 008 field, but you can select a different language in the language menu (and turn off auto-selection if desired).  Be sure to confirm the direction of the conversion (Script-to-Roman or Roman-to-Script) and the capitalization settings as well.  You do not need to re-open the settings panel each time you perform a conversion, unless you want to change these defaults.  (Note: If you try to run the "Settings" menu and nothing comes up, look for a flashing icon in your taskbacr and click that.)
 
 ## Running the 'Convert' macro
 
