@@ -4,6 +4,8 @@ This OCLC Connexion macro usese the Library of Congress "ScriptShifter" service 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
+NOTE: There is a known bug in OCLC Connexion in which macro dialog boxes may not appear in front of the Connexion window.  If you try to open the settings panel (which will open automatically the first time you run the macro), it may appear that nothing happens.  If this is the case, check the Windows task bar for a flashing icon.  Clicking it should bring up the settings dialog.
+
 This macro can be used for any script supported by ScriptShifter.  However, as shown below, there are some special customizations for Korean.
 
 ## Configuration
