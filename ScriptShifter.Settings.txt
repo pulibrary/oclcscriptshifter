@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 17 April 2025
-'Macro version: 0.1.1
+'Macro last modified: 12 May 2025
+'Macro version: 0.1.2
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
@@ -25,7 +25,7 @@ Global Const sSSURL = "https://bibframe.org/scriptshifter/"
 Global Const sLangEndpoint = "languages"
 Global Const sOptionsEndPoint = "options"
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
-Global Const sDefaultJSON = "{""lang"":""asian_cyrillic"",""autoselect"":""true"",""capitalize"":""first"",""t_dir"":""s2r"",""options"":{}}"
+Global Const sDefaultJSON = "{""lang"":""asian_cyrillic"",""autoselect"":""true"",""capitalize"":""first"",""t_dir"":""auto"",""options"":{}}"
 
 Global sLangCode
 Global sLangLabel
@@ -108,7 +108,7 @@ LoadData:
    'SetLanguageOptions(sLangCode)
    
    
-   Begin Dialog SSDialog 1,1,Column(5), Row(6),"ScriptShifter Settings",.DialogFunc
+   Begin Dialog SSDialog 10,10,Column(6), Row(6),"ScriptShifter Settings",.DialogFunc
       Text Column(1), Row(1), ControlWidth(1), ControlHeight(1), "Language:"
       DropListBox Column(2), Row(1), ControlWidth(2),ControlHeight(10),aLangList$(),.LangBox
       
@@ -116,8 +116,9 @@ LoadData:
       
       Text Column(1),Row(3),ControlWidth(1),ControlHeight(1), "Direction:"
       OptionGroup .Direction
-      OptionButton Column(2),Row(3),ControlWidth(1)*1.5,ControlHeight(1),"Script-to-Roman"
-      OptionButton Column(3)*1.1,Row(3),ControlWidth(1)*1.5,ControlHeight(1),"Roman-to-Script"
+      OptionButton Column(2),Row(3),ControlWidth(1),ControlHeight(1),"Auto-detect"
+      OptionButton Column(3),Row(3),ControlWidth(1)*1.5,ControlHeight(1),"Script-to-Roman"
+      OptionButton Column(4)*1.1,Row(3),ControlWidth(1)*1.5,ControlHeight(1),"Roman-to-Script"
       
       Text Column(1), Row(4),ControlWidth(1),ControlHeight(1), "Capitalization:"
       OptionGroup .Capitalization
@@ -141,8 +142,10 @@ On Error Resume Next
    End If
    'OK button
    sSelectedLang = aLangTable$(dlg.LangBox,1)
-   sDirection = "s2r"
+   sDirection = "auto"
    If dlg.Direction = 1 Then
+      sDirection = "s2r"
+   ElseIf dlg.Direction = 2 Then
       sDirection = "r2s"
    End If
    sCapitalization = "no_change"
@@ -242,6 +245,7 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
       ElseIf sCfgCapitalization = "all" Then
          DlgValue "Capitalization", 2
       End If
+
       'DlgText "OptionsText", aLangOptionsTable(0,1)
    Case 2 ' Value changing or button pressed
       If DlgItem$ = "LangBox" Then

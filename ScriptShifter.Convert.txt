@@ -4,8 +4,8 @@
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
-'Macro last modified: 5 May 2025
-'Macro version: 0.1.1
+'Macro last modified: 12 May 2025
+'Macro version: 0.1.2
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
@@ -15,6 +15,7 @@ Declare Function ConvertMARC8(sStr As String) As String
 Declare Function GetJSONField(sJSON As String, sField As String) As String
 Declare Function AdjustKorLangCode(sJSON As String, bIsName) As String
 Declare Sub GetLanguageList(ByRef aLangTable$())
+Declare Function IsRomanized(sString As String) As Integer
 
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
@@ -27,7 +28,6 @@ Sub Main
    Set CS = GetObject( , "Connex.Client" )
    On Error GoTo 0
    If CS Is Nothing Then Set CS = CreateObject( "Connex.Client" )
-
    ChDir Environ("AppData") & "\OCLC\Connex\Macros"
    On Error GoTo MakeFile
 ReadJSON:
@@ -113,14 +113,7 @@ Convert:
       If sSubfieldTag >= "0" And sSubfieldTag <= "9" Then
          sResponse = sCurrentSubfield
          GoTo AppendResponse            
-      End If
-
-      'TEMPORARY: If s2r, Skip subfields that do not contain HTML (i.e. likely already romanized)
-      If InStr(1,sJSON,"s2r") > 0 And InStr(1,sCurrentSubfield,"&#x") = 0 Then
-         sResponse = sCurrentSubfield
-         GoTo AppendResponse            
-      End If
-   
+      End If   
    
       sCurrentSubfield = ReplaceAll(sCurrentSubfield,Chr(34),"\" & Chr(34))
       sCurrentSubfield = ConvertHTMLEntities(sCurrentSubfield) 
@@ -134,15 +127,27 @@ Convert:
          sJSON = AdjustKorLangCode(sJSON,bIsName)
       End If
    
+   
+   
       Dim oHTTP As Object
       Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
       Dim sReqJSON As String
       sReqJSON = sJSON
-      If InStr(1,sReqJSON,"s2r") > 0 Then 
-         sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & sCurrentSubfield & """,""lang")
-      Else
-         sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & LCase(sCurrentSubfield) & """,""lang")
+      sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & sCurrentSubfield & """,""lang")
+
+      If InStr(1,sReqJSON,Chr(34) & "t_dir" & Chr(34) & ":" & Chr(34) & "auto") > 0 Then 
+         If IsRomanized(sReqJSON) Then
+            sReqJSON = ReplaceAll(sReqJSON,"auto","r2s")
+         Else
+            sReqJSON = ReplaceAll(sReqJSON,"auto","s2r")
+         End If
       End If
+      'TEMPORARY: If s2r, Skip subfields that do not contain Unicode entities (i.e. likely already romanized)
+      If InStr(1,sJSON,"s2r") > 0 And InStr(1,sCurrentSubfield,"\u") = 0 Then
+         sResponse = sCurrentSubfield
+         GoTo AppendResponse            
+      End If
+
       oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
       oHTTP.SetRequestHeader "Content-Type", "application/json"
       oHTTP.Send(sReqJSON)
@@ -186,6 +191,12 @@ AppendResponse:
       sResponse = ReplaceAll(sResponse,"&#x00f6;","o&#x0308;") 
       sResponse = ReplaceAll(sResponse,"&#x00dc;","U&#x0308;") 
       sResponse = ReplaceAll(sResponse,"&#x00fc;","u&#x0308;") 
+      'Greek (remove stress marks, convert "O" to "Ho"
+      If InStr(1, sReqJSON, "greek") > 0 And InStr(1,sReqJSON,"s2r") > 0 Then
+         sResponse = ReplaceAll(sResponse, "O ","Ho ")
+         sResponse = ReplaceAll(sResponse,"&#x0301;","")
+      End If
+
 
       If sSubfieldTag <> "" Then
          sResponse = Chr(223) & sSubfieldTag & " " & Trim(sResponse)
@@ -208,11 +219,10 @@ AppendResponse:
      i = i - 1
   Loop
 
-   bool = CS.AddFieldLine(CS.CursorRow + 1, NewField & sConvertedFields)
-   CS.CursorRow = CS.CursorRow -1
-   CS.SendKeys "", -1
-   CS.SendKeys "%(ekl)", -1
-
+  bool = CS.AddFieldLine(CS.CursorRow + 1, NewField & sConvertedFields)
+  CS.CursorRow = CS.CursorRow -1
+  CS.SendKeys "", -1
+  CS.SendKeys "%(ekl)", -1
 End Sub
 
 Function AdjustKorLangCode(sJSON As String, bIsName) As String
@@ -411,3 +421,21 @@ Sub GetLanguageList(ByRef aLangTable$())
       iNextPos = InStr(1,sResponse,"},")
    Loop While iNextPos > 0
 End Sub
+
+Function IsRomanized(sString As String) As Integer
+   IsRomanized = True
+   iPos = 1
+   While iPos > 0 
+      If iPos > 1 Then
+         iPos = iPos + 1
+      End If
+      iPos = InStr(iPos,sString,"\u")
+      If iPos > 0 Then
+         sCode = Mid(sString,iPos+2,4)
+         If sCode >= "0370" Then
+            IsRomanized = False
+         End If
+      End If  
+   Wend
+End Function
+
