@@ -6,7 +6,7 @@
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
 'Macro last modified: 17 April 2025
-'Macro version: 0.1.2
+'Macro version: 0.1.3
 
 Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""first"",""t_dir"":""s2r"",""options"":{}}"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
