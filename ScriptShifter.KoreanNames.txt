@@ -5,14 +5,15 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 17 April 2025
-'Macro version: 0.1.3
+'Macro last modified: 29 May 2025
+'Macro version: 0.1.4
 
-Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""first"",""t_dir"":""s2r"",""options"":{}}"
+Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""no_change"",""t_dir"":""s2r"",""options"":{}}"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sTransEndpoint = "trans"
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
+Declare Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ConvertHTMLEntities(sStr As String) As String
 Declare Function ConvertUnicodeEntities(sStr As String) As String
 Declare Function ConvertMARC8(sStr As String) As String
@@ -74,7 +75,7 @@ Sub Main
    sReqJSON = ReplaceAll(sReqJSON,"korean_names", "korean_nonames")
    sRomanNormal = QueryScriptShifter(sReqJSON)
    sRomanNormal = ConvertUnicodeEntities(sRomanNormal)
-   
+
    If sRomanName = sRomanNormal Then
       Exit Sub
    End If
@@ -108,7 +109,7 @@ Sub Main
       Exit Sub
    End If
 
-   sRomanField = ReplaceAll(sRomanField,sRomanNormal,sRomanName)
+   sRomanField = ReplaceAllNoCase(sRomanField,sRomanNormal,sRomanName)
    For i = 1 to iSelLen
       If Mid(sRomanField,Len(sRomanField),1) = ";" Then
          If Len(sRomanField) > 8 And Mid(sRomanField,Len(sRomanField)-7,3) = "&#x" Then
@@ -263,6 +264,19 @@ Function ConvertUnicodeEntities(sStr As String) As String
       iPos = InStr(1,sStr,"\u") 
    Wend
    ConvertUnicodeEntities = sStr
+End Function
+
+
+Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace As String) As String
+   place = 1
+   If InStr(place, LCase(sStr), LCase(sFind)) Then
+      Do While InStr(place, LCase(sStr), LCase(sFind))
+          place = InStr(place, LCase(sStr), LCase(sFind))
+          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
+          place = place + Len(sReplace)
+      Loop
+   End If
+   ReplaceAllNoCase = sStr
 End Function
 
 Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
