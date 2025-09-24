@@ -4,8 +4,8 @@
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
-'Macro last modified: 29 May 2025
-'Macro version: 0.1.4
+'Macro last modified: 24 September 2025
+'Macro version: 0.1.5
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
@@ -18,8 +18,7 @@ Declare Sub GetLanguageList(ByRef aLangTable$())
 Declare Function IsRomanized(sString As String) As Integer
 
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
-Global Const sScriptShifterURL = "https://scriptshifter-test.knowledgetx.com/"
-'Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
+Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sLangEndpoint = "languages"
 Global Const sTransEndpoint = "trans"
 
@@ -52,6 +51,8 @@ MakeFile:
    Goto ReadJSON:
 Convert:
    Dim sField As String           
+
+
    bool = CS.GetFieldLineUnicode(CS.CursorRow, sField)
    If bool = FALSE Then
       MsgBox "Not viewing a MARC record. Exiting..."
@@ -63,6 +64,8 @@ Convert:
 
    'Normalize subfield delimiter 
    sField = ReplaceAll(sField, "&#x01C2;",Chr(223))
+
+  
 
    sOriginalField = sField
    
@@ -447,4 +450,3 @@ Function IsRomanized(sString As String) As Integer
       End If  
    Wend
 End Function
-
