@@ -1,0 +1,219 @@
+'MacroName:KoreanName
+'MacroDescription:Convert a field using the ScriptShifter utility
+'Macro written by: Thomas Ventimiglia, Princeton University East Asian Library 
+'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
+'Macro Created: 17 April 2025
+'Macro last modified: 29 September 2025
+'Macro version: 0.2.0
+
+Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""no_change"",""t_dir"":""s2r"",""options"":{}}"
+Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
+Global Const sTransEndpoint = "trans"
+
+Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
+Declare Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace as String) As String
+Declare Function ConvertHTMLEntities(sStr As String) As String
+Declare Function ConvertUnicodeEntities(sStr As String) As String
+Declare Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
+Declare Function QueryScriptShifter(sReqJSON As String) As String
+
+Sub Main
+   Dim CS As Object
+   On Error Resume Next
+   Set CS  = GetObject(,"Connex.Client")
+   On Error GoTo 0
+   If CS  Is Nothing Then
+      Set CS  = CreateObject("Connex.Client")
+   End If
+   sSelection = ""
+   startSpace = ""
+   endSpace = ""
+   sTitle = "Convert Korean Names"
+   
+   Dim pinyin As Integer
+
+   CS.SendKeys "",-1
+   CS.SendKeys "^c",-1
+   CS.CopySelected
+      
+   iSelRow = CS.CursorRow
+   iSelCol = CS.CursorColumn
+   iSelLen = Len(Clipboard.GetText)
+
+   If iSelLen = 0 Then
+      MsgBox "No text selected",0,sTitle
+      Exit Sub
+   End If   
+
+
+   'Insert BOM at beginning of field to force all Unicode to appear as numeric entities
+   CS.HomeCell
+   CS.SetSelectedText("FEFF")
+   CS.SendKeys "",-1
+   CS.SendKeys "%x",-1
+   
+   CS.GetFieldLineUnicode iSelRow,sSelection
+   sSelection = GetUnicodeSubstring(sSelection,iSelCol,iSelLen)
+
+   'If selection starts or ends with a space, strip it and add it back in later.
+   If Left(sSelection,1) = " " Then
+      startSpace = " "
+      sSelection = Mid(sSelection,2)
+   End If
+   If Right(sSelection,1) = " " Then
+      endSpace = " "
+      sSelection = Left(sSelection,Len(sSelection)-1)
+   End If
+   
+   sSelection = ReplaceAll(sSelection,Chr(34),"\" & Chr(34))
+   sSelection = ConvertHTMLEntities(sSelection) 
+
+   sReqJSON = ReplaceAll(sDefaultJSON, "{""lang","{""text"":""" & sSelection & """,""lang")
+   sRomanName = QueryScriptShifter(sReqJSON)
+   sRomanName = ConvertUnicodeEntities(sRomanName)
+   sReqJSON = ReplaceAll(sReqJSON,"korean_names", "korean_nonames")
+   sRomanNormal = QueryScriptShifter(sReqJSON)
+   sRomanNormal = ConvertUnicodeEntities(sRomanNormal)
+
+   If sRomanName = sRomanNormal Then
+      Exit Sub
+   End If
+   
+   nStart = CS.CursorColumn
+   nEnd = nStart + Len(sSelection)
+   nLine = CS.CursorRow
+   nNextLine = nLine + 1
+   'The parallel field must appear right above the Romanized field and have the same tag.
+   
+   If Len(sSelection) = 0 Then
+      MsgBox "No text selected",0,sTitle
+      Exit Sub
+   End If
+   
+   
+   Dim sCharField As string
+   bSuccess = CS.GetFieldLineUnicode(nLine, sCharField)
+   
+   Dim sRomanField As String
+   CS.CursorRow = nNextLine
+   CS.CursorColumn = 999
+   CS.Paste   
+   
+   If CS.GetFieldLineUnicode(nNextLine, sRomanField) = False Then
+      MsgBox "No parallel field",0,sTitle
+      Exit Sub
+   End If
+   If Left(sRomanField, 3) <> Left(sCharField, 3) Then
+      MsgBox "No parallel field",0,sTitle
+      Exit Sub
+   End If
+
+   sRomanField = ReplaceAllNoCase(sRomanField,sRomanNormal,sRomanName)
+   For i = 1 to iSelLen
+      If Mid(sRomanField,Len(sRomanField),1) = ";" Then
+         If Len(sRomanField) > 8 And Mid(sRomanField,Len(sRomanField)-7,3) = "&#x" Then
+            sRomanField = Left(sRomanField,Len(sRomanField)-8)
+         Else
+            sRomanField = Left(sRomanField,Len(sRomanField)-1)
+         End If
+      Else
+         sRomanField = Left(sRomanField,Len(sRomanField)-1)
+      End If
+   Next i
+   
+   CS.SetFieldLine nNextLine,sRomanField
+   
+End Sub
+
+Function QueryScriptShifter(sReqJSON As String) As String
+   Dim oHTTP As Object
+   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+   oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
+   oHTTP.SetRequestHeader "Content-Type", "application/json"
+   oHTTP.Send(sReqJSON)
+   sResponse = oHTTP.ResponseText
+   sResponse = ReplaceAll(sResponse,"{""output"":""","")
+   sResponse = Left(sResponse,InStr(1,sResponse,""",""warnings")-1)
+   sResponse = ReplaceAll(sResponse, Chr(10),"")
+   sResponse = ReplaceAll(sResponse, "\" & Chr(34), Chr(34))
+   
+   'TEMPORARY: Convert Korean precomposed vowels to decomposed
+   sResponse = ReplaceAll(sResponse,"\u014e","O\u0306")      
+   sResponse = ReplaceAll(sResponse,"\u014f","o\u0306")   
+   sResponse = ReplaceAll(sResponse,"\u016c","U\u0306")   
+   sResponse = ReplaceAll(sResponse,"\u016d","u\u0306")   
+   
+   QueryScriptShifter = sResponse
+End Function
+
+Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
+   iStrLen = Len(sStr)
+   iActualPos = 1
+   iActualLen = 0
+   sSubstring = ""
+   sChar = ""
+   bInEntity = False
+   For i = 1 to iStrLen
+      If Mid(sStr,i,3) = "&#x" Then
+         bInEntity = True
+      ElseIf Mid(sStr,i,1) = ";" Then
+         bInEntity = False
+      End If
+      If iActualPos >= iStart And iActualLen < iLength Then
+         sSubstring = sSubstring & Mid(sStr,i,1)
+         If Not bInEntity Then
+            iActualLen = iActualLen + 1
+         End If
+      End If
+      If Not bInEntity Then
+         iActualPos = iActualPos + 1
+      End If
+   Next i
+   GetUnicodeSubstring = sSubstring
+End Function
+
+Function ConvertHTMLEntities(sStr As String) As String
+   iPos = InStr(1,sStr,"&#x")
+   While iPos > 0
+      sStr = Left(sStr,iPos-1) & "\u" & Mid(sStr,iPos+3,4) & Mid(sStr,iPos+8)   
+      iPos = InStr(1,sStr,"&#x") 
+   Wend
+   ConvertHTMLEntities = sStr
+End Function
+
+Function ConvertUnicodeEntities(sStr As String) As String
+   iPos = InStr(1,sStr,"\u")
+   While iPos > 0
+      sStr = Left(sStr,iPos-1) & "&#x" & UCase(Mid(sStr,iPos+2,4)) & ";" & Mid(sStr,iPos+6)  
+      iPos = InStr(1,sStr,"\u") 
+   Wend
+   ConvertUnicodeEntities = sStr
+End Function
+
+
+Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace As String) As String
+   place = 1
+   If InStr(place, LCase(sStr), LCase(sFind)) Then
+      Do While InStr(place, LCase(sStr), LCase(sFind))
+          place = InStr(place, LCase(sStr), LCase(sFind))
+          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
+          place = place + Len(sReplace)
+      Loop
+   End If
+   ReplaceAllNoCase = sStr
+End Function
+
+Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
+   place = 1
+   If InStr(place, sStr, sFind) Then
+      Do While InStr(place, sStr, sFind)
+          place = InStr(place, sStr, sFind)
+          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
+          place = place + Len(sReplace)
+      Loop
+   End If
+   ReplaceAll = sStr
+End Function
+

@@ -4,14 +4,14 @@
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
-'Macro last modified: 24 September 2025
-'Macro version: 0.1.5
+'Macro last modified: 30 September 2025
+'Macro version: 0.2.0
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
 Declare Function GetHexCode(sStr As String)
 Declare Function ConvertHTMLEntities(sStr As String) As String
-Declare Function ConvertMARC8(sStr As String) As String
+Declare Function ConvertLatin1(sStr As String) As String
 Declare Function GetJSONField(sJSON As String, sField As String) As String
 Declare Function AdjustKorLangCode(sJSON As String, bIsName) As String
 Declare Sub GetLanguageList(ByRef aLangTable$())
@@ -50,23 +50,30 @@ MakeFile:
    CS.RunMacro("ScriptShifter!Settings")
    Goto ReadJSON:
 Convert:
+
+   sDelimiter = Chr(31)
+
    Dim sField As String           
 
+   'Insert BOM at end of field to force all Unicode to appear as numeric entities
+   CS.EndCell
+   CS.InsertText("&#xFEFF;")
 
    bool = CS.GetFieldLineUnicode(CS.CursorRow, sField)
    If bool = FALSE Then
       MsgBox "Not viewing a MARC record. Exiting..."
       Exit Sub
    End If
-
+   
    'Replace EOP character in indicator fields with period
    sField = ReplaceAll(sField, "&#x220E;",".")
 
-   'Normalize subfield delimiter 
-   sField = ReplaceAll(sField, "&#x01C2;",Chr(223))
+   'Convert subfield Delimiter to ASCII 1F
+   sField = ReplaceAll(sField, "&#x01C2;",sDelimiter)
 
+   'Remove BOM
+    sField = ReplaceAll(sField, "&#xFEFF;","")
   
-
    sOriginalField = sField
    
    'Pull the tag name and indicators
@@ -96,7 +103,7 @@ Convert:
 
    Do
       sCurrentSubfield = sField
-      iDelimPos = InStr(2,sField,Chr(223))
+      iDelimPos = InStr(2,sField,sDelimiter)
       If iDelimPos > 0 Then
         sCurrentSubfield = Left(sField,iDelimPos-1)
         sField = Mid(sField,iDelimPos)
@@ -104,7 +111,7 @@ Convert:
    
      
       sSubfieldTag = ""
-      If Left(sCurrentSubfield,1) = Chr(223) Then
+      If Left(sCurrentSubfield,1) = sDelimiter Then
          sSubfieldTag = Mid(sCurrentSubfield,2,1)
          sCurrentSubfield = Mid(sCurrentSubfield,3)
       End If
@@ -123,10 +130,9 @@ Convert:
          sResponse = sCurrentSubfield
          GoTo AppendResponse            
       End If   
-   
+ 
       sCurrentSubfield = ReplaceAll(sCurrentSubfield,Chr(34),"\" & Chr(34))
       sCurrentSubfield = ConvertHTMLEntities(sCurrentSubfield) 
-      sCurrentSubfield = ConvertMARC8(sCurrentSubfield) 
      
       bIsName = False
       If (sTag = "100" Or sTag = "600" Or sTag = "700" or sTag = "800") And (sSubfieldTag = "a" Or sSubfieldTag = "") Then
@@ -135,8 +141,6 @@ Convert:
       If InStr(1,sJSON,"korean") Then
          sJSON = AdjustKorLangCode(sJSON,bIsName)
       End If
-   
-   
    
       Dim oHTTP As Object
       Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
@@ -208,7 +212,7 @@ AppendResponse:
 
 
       If sSubfieldTag <> "" Then
-         sResponse = Chr(223) & sSubfieldTag & " " & Trim(sResponse)
+         sResponse = "&#x01C2;" & sSubfieldTag & " " & Trim(sResponse)
       End If
       sResponse = Trim(sResponse) & sSuffix
       sConvertedFields = sConvertedFields & sResponse
@@ -227,13 +231,16 @@ AppendResponse:
      End If
      i = i - 1
   Loop
+
   
   If InStr(1,sReqJSON,"s2r") > 0 Then
      bool = CS.AddFieldLine(CS.CursorRow + 1, NewField & sConvertedFields)
   Else
      bool = CS.SetFieldLine(CS.CursorRow, NewField & sConvertedFields)
+     sOriginalField = ConvertLatin1(sOriginalField)
      bool = CS.AddFieldLine(CS.CursorRow + 1, sOriginalField)
   End If
+
   CS.CursorRow = CS.CursorRow -1
   CS.SendKeys "", -1
   CS.SendKeys "%(ekl)", -1
@@ -291,78 +298,11 @@ Function GetHexCode(sChar As String) as Long
    GetHexCode = nHex 
 End Function
 
-Function ConvertMARC8(sStr As String) As String
-   sStr = ReplaceAll(sStr,Chr(136), "\u0098") 
-   sStr = ReplaceAll(sStr,Chr(137), "\u009C") 
-   sStr = ReplaceAll(sStr,Chr(141), "\u200D") 
-   sStr = ReplaceAll(sStr,Chr(142), "\u200C") 
-   sStr = ReplaceAll(sStr,Chr(161), "\u0141") 
-   sStr = ReplaceAll(sStr,Chr(162), "\u00D8") 
-   sStr = ReplaceAll(sStr,Chr(163), "\u0110") 
-   sStr = ReplaceAll(sStr,Chr(164), "\u00DE") 
-   sStr = ReplaceAll(sStr,Chr(165), "\u00C6") 
-   sStr = ReplaceAll(sStr,Chr(166), "\u0152") 
-   sStr = ReplaceAll(sStr,Chr(167), "\u02B9") 
-   sStr = ReplaceAll(sStr,Chr(168), "\u00B7") 
-   sStr = ReplaceAll(sStr,Chr(169), "\u266D") 
-   sStr = ReplaceAll(sStr,Chr(170), "\u00AE") 
-   sStr = ReplaceAll(sStr,Chr(171), "\u00B1") 
-   sStr = ReplaceAll(sStr,Chr(172), "\u01A0") 
-   sStr = ReplaceAll(sStr,Chr(173), "\u01AF") 
-   sStr = ReplaceAll(sStr,Chr(174), "\u02BC") 
-   sStr = ReplaceAll(sStr,Chr(176), "\u02BB") 
-   sStr = ReplaceAll(sStr,Chr(177), "\u0142") 
-   sStr = ReplaceAll(sStr,Chr(178), "\u00F8") 
-   sStr = ReplaceAll(sStr,Chr(179), "\u0111") 
-   sStr = ReplaceAll(sStr,Chr(180), "\u00FE") 
-   sStr = ReplaceAll(sStr,Chr(181), "\u00E6") 
-   sStr = ReplaceAll(sStr,Chr(182), "\u0153") 
-   sStr = ReplaceAll(sStr,Chr(183), "\u02BA") 
-   sStr = ReplaceAll(sStr,Chr(184), "\u0131")
-   sStr = ReplaceAll(sStr,Chr(185), "\u00A3")
-   sStr = ReplaceAll(sStr,Chr(186), "\u00F0") 
-   sStr = ReplaceAll(sStr,Chr(188), "\u01A1") 
-   sStr = ReplaceAll(sStr,Chr(189), "\u01B0")
-   sStr = ReplaceAll(sStr,Chr(192), "\u00B0") 
-   sStr = ReplaceAll(sStr,Chr(193), "\u2113") 
-   sStr = ReplaceAll(sStr,Chr(194), "\u2117") 
-   sStr = ReplaceAll(sStr,Chr(195), "\u00A9") 
-   sStr = ReplaceAll(sStr,Chr(196), "\u266F") 
-   sStr = ReplaceAll(sStr,Chr(197), "\u00BF") 
-   sStr = ReplaceAll(sStr,Chr(198), "\u00A1") 
-   sStr = ReplaceAll(sStr,Chr(199), "\u00DF") 
-   sStr = ReplaceAll(sStr,Chr(200), "\u20AC")  
-   sStr = ReplaceAll(sStr,Chr(224), "\u0309")  
-   sStr = ReplaceAll(sStr,Chr(225), "\u0300")  
-   sStr = ReplaceAll(sStr,Chr(226), "\u0301")  
-   sStr = ReplaceAll(sStr,Chr(227), "\u0302")  
-   sStr = ReplaceAll(sStr,Chr(228), "\u0303")  
-   sStr = ReplaceAll(sStr,Chr(229), "\u0304")  
-   sStr = ReplaceAll(sStr,Chr(230), "\u0306")  
-   sStr = ReplaceAll(sStr,Chr(231), "\u0307")  
-   sStr = ReplaceAll(sStr,Chr(232), "\u0308")  
-   sStr = ReplaceAll(sStr,Chr(233), "\u030C")  
-   sStr = ReplaceAll(sStr,Chr(234), "\u030A")  
-   sStr = ReplaceAll(sStr,Chr(235), "\u0361")  
-   sStr = ReplaceAll(sStr,Chr(236), "")  
-   sStr = ReplaceAll(sStr,Chr(237), "\u0315")  
-   sStr = ReplaceAll(sStr,Chr(238), "\u030B")  
-   sStr = ReplaceAll(sStr,Chr(239), "\u0310")   
-   sStr = ReplaceAll(sStr,Chr(240), "\u0327") 
-   sStr = ReplaceAll(sStr,Chr(241), "\u0328") 
-   sStr = ReplaceAll(sStr,Chr(242), "\u0323") 
-   sStr = ReplaceAll(sStr,Chr(243), "\u0324") 
-   sStr = ReplaceAll(sStr,Chr(244), "\u0325") 
-   sStr = ReplaceAll(sStr,Chr(245), "\u0333") 
-   sStr = ReplaceAll(sStr,Chr(246), "\u0332") 
-   sStr = ReplaceAll(sStr,Chr(247), "\u0326") 
-   sStr = ReplaceAll(sStr,Chr(248), "\u031C") 
-   sStr = ReplaceAll(sStr,Chr(249), "\u032E") 
-   sStr = ReplaceAll(sStr,Chr(250), "\u0360") 
-   sStr = ReplaceAll(sStr,Chr(251), "")
-   sStr = ReplaceAll(sStr,Chr(254), "\u0313") 
-
-   ConvertMARC8 = sStr
+Function ConvertLatin1(sStr As String) As String
+   For i = 128 to 255
+      sStr = ReplaceAll(sStr, Chr(i), "&#x" & Hex(i) & ";")
+   Next i
+   ConvertLatin1 = sStr
 End Function
 
 Function ConvertHTMLEntities(sStr As String) As String
