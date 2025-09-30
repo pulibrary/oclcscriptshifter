@@ -5,7 +5,7 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
 'Macro last modified: 30 September 2025
-'Macro version: 0.2.0
+'Macro version: 0.2.1
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
@@ -51,7 +51,9 @@ MakeFile:
    Goto ReadJSON:
 Convert:
 
-   sDelimiter = Chr(31)
+   sDelimiterChar = Chr(31)
+   sDelimiterHTML = "&#x01C2;"
+
 
    Dim sField As String           
 
@@ -68,13 +70,13 @@ Convert:
    'Replace EOP character in indicator fields with period
    sField = ReplaceAll(sField, "&#x220E;",".")
 
-   'Convert subfield Delimiter to ASCII 1F
-   sField = ReplaceAll(sField, "&#x01C2;",sDelimiter)
-
    'Remove BOM
     sField = ReplaceAll(sField, "&#xFEFF;","")
   
    sOriginalField = sField
+
+   'Convert subfield Delimiter to ASCII 1F
+   sField = ReplaceAll(sField, sDelimiterHTML,sDelimiterChar)
    
    'Pull the tag name and indicators
    NewField = Left(sField, 5)
@@ -103,7 +105,7 @@ Convert:
 
    Do
       sCurrentSubfield = sField
-      iDelimPos = InStr(2,sField,sDelimiter)
+      iDelimPos = InStr(2,sField,sDelimiterChar)
       If iDelimPos > 0 Then
         sCurrentSubfield = Left(sField,iDelimPos-1)
         sField = Mid(sField,iDelimPos)
@@ -111,7 +113,7 @@ Convert:
    
      
       sSubfieldTag = ""
-      If Left(sCurrentSubfield,1) = sDelimiter Then
+      If Left(sCurrentSubfield,1) = sDelimiterChar Then
          sSubfieldTag = Mid(sCurrentSubfield,2,1)
          sCurrentSubfield = Mid(sCurrentSubfield,3)
       End If
@@ -212,7 +214,7 @@ AppendResponse:
 
 
       If sSubfieldTag <> "" Then
-         sResponse = "&#x01C2;" & sSubfieldTag & " " & Trim(sResponse)
+         sResponse = sDelimiterHTML & sSubfieldTag & " " & Trim(sResponse)
       End If
       sResponse = Trim(sResponse) & sSuffix
       sConvertedFields = sConvertedFields & sResponse
@@ -235,13 +237,13 @@ AppendResponse:
   
   If InStr(1,sReqJSON,"s2r") > 0 Then
      bool = CS.AddFieldLine(CS.CursorRow + 1, NewField & sConvertedFields)
+     CS.CursorRow = CS.CursorRow -1
   Else
-     bool = CS.SetFieldLine(CS.CursorRow, NewField & sConvertedFields)
-     sOriginalField = ConvertLatin1(sOriginalField)
-     bool = CS.AddFieldLine(CS.CursorRow + 1, sOriginalField)
+     'bool = CS.SetFieldLine(CS.CursorRow, NewField & sConvertedFields)
+     'sOriginalField = ConvertLatin1(sOriginalField)
+     bool = CS.AddFieldLine(CS.CursorRow, NewField & sConvertedFields)
   End If
 
-  CS.CursorRow = CS.CursorRow -1
   CS.SendKeys "", -1
   CS.SendKeys "%(ekl)", -1
 End Sub
