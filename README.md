@@ -15,7 +15,7 @@ The macro book contains 3 macros:
 
 The following can be done for any or all of these macros:
 
-**To add a macros to the toolbar**
+**To add a macro to the toolbar**
 - Select "Tools > User Tools > Assign...". At the top of the screen, click "Macros". In the list box on the left side of the window, select the desired macro.
 - Under the "Select New User Tool" menu, select a tool that is not yet assigned to another function. Make note of the tool number, then click "Assign Tool", and then "OK".
 - Select "Tools > Toolbar Editor...". Scroll down to "ToolsUserToolsX", where X is the tool number that you just assigned to the macro. Drag the icon to the desired location on the toolbar.
