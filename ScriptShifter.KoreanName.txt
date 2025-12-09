@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 30 September 2025
-'Macro version: 0.2.1
+'Macro last modified: 09 December 2025
+'Macro version: 0.2.2
 
 Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""no_change"",""t_dir"":""s2r"",""options"":{}}"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
@@ -70,12 +70,15 @@ Sub Main
 
    sReqJSON = ReplaceAll(sDefaultJSON, "{""lang","{""text"":""" & sSelection & """,""lang")
    sRomanName = QueryScriptShifter(sReqJSON)
+   If sRomanName = "" Then
+      Exit Sub
+   End If
    sRomanName = ConvertUnicodeEntities(sRomanName)
    sReqJSON = ReplaceAll(sReqJSON,"korean_names", "korean_nonames")
    sRomanNormal = QueryScriptShifter(sReqJSON)
    sRomanNormal = ConvertUnicodeEntities(sRomanNormal)
 
-   If sRomanName = sRomanNormal Then
+   If sRomanName = sRomanNormal or sRomanNormal = "" Then
       Exit Sub
    End If
    
@@ -131,6 +134,14 @@ Function QueryScriptShifter(sReqJSON As String) As String
    oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
    oHTTP.SetRequestHeader "Content-Type", "application/json"
    oHTTP.Send(sReqJSON)
+   
+   If (oHTTP.Status <> "200") Then
+      MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
+      QueryScriptShifter = ""
+      Exit Function
+   End If
+
+   
    sResponse = oHTTP.ResponseText
    sResponse = ReplaceAll(sResponse,"{""output"":""","")
    sResponse = Left(sResponse,InStr(1,sResponse,""",""warnings")-1)

@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 29 May 2025
-'Macro version: 0.2.1
+'Macro last modified: 09 December 2025
+'Macro version: 0.2.2
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
@@ -40,6 +40,7 @@ Global sCfgDirection
 Global sCfgAutoSelect
 Global CS As Object
 Global oHTTP As Object
+Global bSSerror
 
 Sub Main
    On Error Resume Next
@@ -77,11 +78,16 @@ LoadData:
    sLangMARC = ""
    bSuccess = CS.GetFixedField("Lang",sLangMARC)
 
+   bSSerror = False
    Call GetLanguageList
+   If(bSSerror) Then
+      Exit Sub
+   End If
+
 
    sLangCode = ""
    sLangLabel = ""
-
+   
    
    If sCfgAutoSelect = "false" Then
       For i = 0 to UBound(aLangTable$)
@@ -183,6 +189,13 @@ Sub GetLanguageList
    oHTTP.Open "GET", sURL, False
    oHTTP.SetRequestHeader "Content-Type", "application/json"
    oHTTP.Send
+   
+   If (oHTTP.Status <> "200") Then
+      MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
+      bSSerror = True
+      Exit Sub
+   End If
+
    
    sResponse = oHTTP.ResponseText
    
