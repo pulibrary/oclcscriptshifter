@@ -4,6 +4,8 @@ This OCLC Connexion macro usese the Library of Congress "ScriptShifter" service 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
+(Note: Depending on your computer's security settings, trying to run the installer may pop up a warning that "Windows protected Your PC". If you receive this warning, you can proceed with the installation by clicking "More info" and then "Run anyway".)
+
 Alternatively, you can download this MBK file to your macros directory (e.g. `C:\Users\[your user id]\AppData\Roaming\OCLC\Connex\Macros\`).
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/ScriptShifter.mbk">ScriptShifter.mbk</a>
