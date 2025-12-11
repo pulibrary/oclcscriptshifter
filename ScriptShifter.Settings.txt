@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 09 December 2025
-'Macro version: 0.2.2
+'Macro last modified: 11 December 2025
+'Macro version: 0.3.0
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
@@ -16,24 +16,26 @@ Declare Function ControlWidth(iPos As Integer) As Integer
 Declare Function ControlHeight(iPos As Integer) As Integer
 Declare Sub GetLanguageList()
 Declare Function GetJSONField(sJSON As String, sField As String) As String
-Declare Sub SetLanguageOptions(sLangCode As String)
+Declare Function AddExclusion(sSubfield as String)
+Declare Function DeleteExclusion(sSubfield as String)
+Declare Sub SetExclusions(sExclusionList As String)
 
+Global Const sVersion = "v0.3.0"
 Global Const RowHeight = 20
 Global Const ColumnWidth = 50   
 Global Const MarginSize = 10
 Global Const sSSURL = "https://bibframe.org/scriptshifter/"
 Global Const sLangEndpoint = "languages"
-Global Const sOptionsEndPoint = "options"
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
-Global Const sDefaultJSON = "{""lang"":""asian_cyrillic"",""autoselect"":""true"",""capitalize"":""first"",""t_dir"":""auto"",""options"":{}}"
+Global Const sDefaultJSON = "{""lang"":""asian_cyrillic"",""autoselect"":""true"",""capitalize"":""first"",""t_dir"":""auto""," & _
+   """exclude"":['1xxe','7xxe','856u','xxxi'],""options"":{}}"
 
 Global sLangCode
 Global sLangLabel
 Global sLangMARC
 Global aLangTable$()
 Global aLangList$()
-Global aLangOptionsList$()
-Global aLangOptionsTable$()
+Global aExcludeSubfields$()
 Global sCfgLang
 Global sCfgCapitalization
 Global sCfgDirection
@@ -59,10 +61,14 @@ ReadJSON:
       sChar = Input$(1,#1)
       sJSON = sJSON & sChar
    Wend
+   If InStr(1,sJSON,"{") = 0 Then
+      GoTo MakeFile
+   End If
    sCfgLang = GetJSONField(sJSON,"lang")
    sCfgCapitalization = GetJSONField(sJSON, "capitalize")
    sCfgDirection = GetJSONField(sJSON, "t_dir")
    sCfgAutoSelect = GetJSONField(sJSON, "autoselect")
+   sCfgExclusions = GetJSONField(sJSON, "exclude")
    Close #1
    Goto LoadData
 MakeFile:
@@ -111,13 +117,14 @@ LoadData:
       sLangLabel = aLangTable$(0,0)
    End if
 
-   'SetLanguageOptions(sLangCode)
+   ReDim aExcludeSubfields$(0)
+   SetExclusions(sCfgExclusions)   
    
-   
-   Begin Dialog SSDialog 10,10,Column(6), Row(6),"ScriptShifter Settings",.DialogFunc
+   Begin Dialog SSDialog 10,10,Column(6), Row(9),"ScriptShifter Settings",.DialogFunc
       Text Column(1), Row(1), ControlWidth(1), ControlHeight(1), "Language:"
       DropListBox Column(2), Row(1), ControlWidth(2),ControlHeight(10),aLangList$(),.LangBox
-      
+      Text Column(4),Row(1),ControlWidth(2),ControlHeight(1),"",.Directionality
+         
       CheckBox Column(1),Row(2),ControlWidth(4),ControlHeight(1),"Auto-select language based on field 008",.AutoSelectLang
       
       Text Column(1),Row(3),ControlWidth(1),ControlHeight(1), "Direction:"
@@ -131,14 +138,17 @@ LoadData:
       OptionButton Column(2),Row(4),ControlWidth(1),ControlHeight(1),"No change"
       OptionButton Column(3),Row(4),ControlWidth(1),ControlHeight(1),"First word"
       OptionButton Column(4),Row(4),ControlWidth(1),ControlHeight(1),"All words"
+
+      Text Column(1), Row(5),ControlWidth(2),ControlHeight(1), "Exclude Subfields:"
+      TextBox Column(2), Row(5), ControlWidth(1), ControlHeight(1),.ExcludeText
+      Button Column(3), Row(5), ControlWidth(1), ControlHeight(1),"Add"
+      Button Column(3), Row(6), ControlWidth(1), ControlHeight(1),"Delete"
+      ListBox Column(4),Row(5),ControlWidth(1),ControlHeight(3),aExcludeSubfields$(),.ExcludeBox
       
-      'Text Column(1),Row(5),ControlWidth(1),ControlHeight(1),"Options:"
-      'DropListBox Column(2),Row(5),ControlWidth(2),ControlHeight(3),aLangOptionsList$(),.OptionsBox
-      'Button Column(1),Row(6),ControlWidth(1),ControlHeight(1),"Set"
-      'TextBox Column(2),Row(6),ControlWidth(2),ControlHeight(1),.OptionsText
+      OKButton  Column(1), Row(8), ControlWidth(1), ControlHeight(1)
+      CancelButton  Column(2), Row(8), ControlWidth(1), ControlHeight(1)
+      Text Column(5),Row(8),ControlWidth(1),ControlHeight(1),sVersion
       
-      OKButton  Column(1), Row(5), ControlWidth(1), ControlHeight(1)
-      CancelButton  Column(2), Row(5), ControlWidth(1), ControlHeight(1)
    End Dialog
    Dim dlg as SSDialog    
 On Error Resume Next
@@ -164,7 +174,20 @@ On Error Resume Next
    If dlg.AutoSelectLang = 1 Then
       sAutoSelect = "true"
    End if 
-   sJSON = "{""lang"":""" & sSelectedLang & """,""autoselect"":""" & sAutoSelect & """,""capitalize"":""" & sCapitalization & """,""t_dir"":""" & sDirection & """,""options"":{}}"
+
+   sExclusionList = "["
+   For i = 0 to UBound(aExcludeSubfields)
+      If aExcludeSubfields(i) <> "" Then  
+         If i > 0 Then
+            sExclusionList = sExclusionList  & ","
+         End If
+         sExclusionList = sExclusionList & "'" & aExcludeSubfields(i) & "'" 
+      End If
+   Next i
+   sExclusionList = sExclusionList & "]"
+
+   sJSON = "{""lang"":""" & sSelectedLang & """,""autoselect"":""" & sAutoSelect & """,""capitalize"":""" & _ 
+      sCapitalization & """,""t_dir"":""" & sDirection & """,""exclude"":" & sExclusionList & ",""options"":{}}"
    'MsgBox sJSON
    Open sSettingsFilename For Output As #1
    Print #1, sJSON
@@ -207,7 +230,7 @@ Sub GetLanguageList
    Wend
    
    ReDim aLangList$(iCount)
-   ReDim aLangTable$(iCount,3)
+   ReDim aLangTable$(iCount,4)
    
    iCount = 0
    Do 
@@ -226,27 +249,41 @@ Sub GetLanguageList
       
       sMARC = sDetails
       sMARC = Mid(sMARC,InStr(1,sMARC,"""marc_code"":""")+13)
-      sMARC = Left(sMARC,InStr(1,sMARC,Chr(34))-1)      
+      sMARC = Left(sMARC,InStr(1,sMARC,Chr(34))-1)  
+      
+      sStoR =  sDetails
+      sStoR = Mid(sStoR,InStr(sStoR,"""has_s2r"":")+10)
+      sStoR = Left(sStoR,InStr(sStoR,",")-1)
+     
+      sRtoS =  sDetails
+      sRtoS = Mid(sRtoS,InStr(sRtoS,"""has_r2s"":")+10)
+      sRtoS = Left(sRtoS,InStr(sRtoS,",")-1)
+       
+      sDirectionality = ""
+      If sStoR = "true" And sRtoS = "false" Then
+         sDirectionality = "Script-to-roman only"
+      ElseIf sStoR = "false" And sRtoS = "true" Then
+         sDirectionality = "Roman-to-Script only"
+      End If
      
       aLangList(iCount) = sLabel
       aLangTable$(iCount,0) = sLabel
       aLangTable$(iCount,1) = sCurrentLang
       aLangTable$(iCount,2) = sMARC
+      aLangTable$(iCount,3) = sDirectionality
       iCount = iCount + 1
       iNextPos = InStr(1,sResponse,"},")
    Loop While iNextPos > 0
 End Sub
 
 Function DialogFunc%(DlgItem$, Action%, SuppValue&)
-   'Debug.Print "Action="&Action%
-   'Debug.Print DlgItem$&"=""";DlgText$(DlgItem$);""""
-   'Debug.Print "SuppValue="&SuppValue&
    Select Case Action%
    Case 1 ' Dialog box initialization
       DlgText "LangBox",sLangLabel
       If DlgText$("LangBox") <> sLangLabel Then
          DlgValue "LangBox",DlgValue("LangBox")+1
       End If
+      DlgText "Directionality",aLangTable$(DlgValue("LangBox"),3)
       If sCfgAutoSelect = "true" Then
          DlgValue "AutoSelectLang", 1
       End If
@@ -258,47 +295,100 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
       ElseIf sCfgCapitalization = "all" Then
          DlgValue "Capitalization", 2
       End If
-
-      'DlgText "OptionsText", aLangOptionsTable(0,1)
    Case 2 ' Value changing or button pressed
-      If DlgItem$ = "LangBox" Then
+      Select Case DlgItem$
+      Case "LangBox"
          sLangCode = aLangTable$(DlgValue(DlgItem$),1)
-         'SetLanguageOptions(sLangCode)
-         'DlgListBoxArray "OptionsBox", aLangOptionsList
-         'DlgValue "OptionsBox",0
-      End If
-      'If DlgItem$ = "OptionsBox" Or DlgItem$ = "LangBox" Then
-      '   sOptionValue = ""
-      '   If DlgItem = "OptionsBox" Then
-      '      sOptionName = DlgText$(DlgItem$)
-      '   Else
-      '      sOptionName = DlgText("OptionsBox")
-      '   End If
-      '   For i = 0 to UBound(aLangOptionsTable)
-      '     If sOptionName = aLangOptionsTable(i,0) Then
-      '       sOptionValue = aLangOptionsTable(i,1)
-      '     End If
-      '   Next i
-      '   DlgText "OptionsText", sOptionValue
-      'End If 
+         DlgText "Directionality",aLangTable$(DlgValue("LangBox"),3)
+      Case "Add"
+         DialogFunc = True 
+         sSubfield = DlgText("ExcludeText")
+         If Not sSubfield Like "[0-9x][0-9x][0-9x][a-z]" Then
+            MsgBox("'" & sSubfield & "' is not a valid subfield. Enter a 3-digit field code followed by subfield letter. " & _
+               "Use 'x' as a wildcard. Valid examples include '300c', '1xxe', etc.")
+            Exit Function
+         End If
+         AddExclusion(sSubfield)
+         DlgListBoxArray "ExcludeBox", aExcludeSubfields
+      Case "Delete"
+         sSelected = DlgText("ExcludeBox")
+         If sSelected <> "" Then 
+            DeleteExclusion(sSelected)
+            DlgListBoxArray "ExcludeBox", aExcludeSubfields
+         Else
+            MsgBox("No value selected")
+         End If
+         DialogFunc = True 
+      End Select
    Case 3 ' TextBox or ComboBox text changed
    Case 4 ' Focus changed
    Case 5 ' Idle
-      'DialogFunc% = True 'do not exit the dialog
    Case 6 ' Function key
-      'If SuppValue And &H100 Then Debug.Print "Shift-";
-      'If SuppValue And &H200 Then Debug.Print "Ctrl-";
-      'If SuppValue And &H400 Then Debug.Print "Alt-";
-      'Debug.Print "F" & (SuppValue And &HFF)
+      
    End Select
+End Function
+
+Sub SetExclusions(sExclusionList As String)
+   iNextComma = InStr(1,sExclusionList,",")   
+   While iNextComma > 0  
+      sNextExclusion = Left(sExclusionList,iNextComma-1)      
+      AddExclusion(sNextExclusion)
+      sExclusionList = Mid(sExclusionList,iNextComma+1)
+      iNextComma = InStr(1,sExclusionList,",")  
+   Wend
+   If sExclusionList <> "" Then
+      AddExclusion(sExclusionList)
+   End If
+End Sub
+
+Function AddExclusion(sSubfield as String)
+   sSubfield = ReplaceAll(sSubfield,"'","")
+   Dim aCurrentExclusions()
+   ReDim aCurrentExclusions(UBound(aExcludeSubfields$))
+   For i = 0 to UBound(aExcludeSubfields$)
+      If sSubfield = aExcludeSubfields(i) Then
+         MsgBox("Exlcusion already exists")
+         Exit Function
+      End If
+      aCurrentExclusions(i) = aExcludeSubfields(i)
+   Next i
+   
+   ReDim aExcludeSubfields(UBound(aExcludeSubfields$)+1)
+   For i = 0 to UBound(aCurrentExclusions)
+      aExcludeSubfields(i) = aCurrentExclusions(i)
+   Next i   
+   aExcludeSubfields(UBound(aExcludeSubfields$)-1) = sSubfield
+End Function
+
+Function DeleteExclusion(sSubfield as String)
+   Dim aCurrentExclusions()
+   ReDim aCurrentExclusions(UBound(aExcludeSubfields$)-1)
+   j  = 0
+   For i = 0 to UBound(aExcludeSubfields$)
+      If sSubfield <> aExcludeSubfields(i) Then
+         aCurrentExclusions(j) = aExcludeSubfields(i)
+         j = j + 1
+      End If
+   Next i
+   
+   ReDim aExcludeSubfields(UBound(aExcludeSubfields$)-1)
+   For i = 0 to UBound(aCurrentExclusions)
+      aExcludeSubfields(i) = aCurrentExclusions(i)
+   Next i   
 End Function
 
 Function GetJSONField(sJSON As String, sField As String) As String
    iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
    sStr = sJSON
    If iLoc > 0 Then
-      sStr = Mid(sStr,iLoc+Len(sField)+4)
-      sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
+      sStr = Mid(sStr,iLoc+Len(sField)+3)
+      sFirstChar = Left(sStr,1)
+      sStr = Mid(sStr,2)
+      If sFirstChar = Chr(34) Then
+         sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
+      ElseIf sFirstChar = "[" Then
+         sStr = Left(sStr,InStr(1,sStr,"]")-1)
+      End If
       GetJSONField = sStr
    Else
       GetJSONField = ""
@@ -320,49 +410,4 @@ End Function
 Function ControlHeight(iPos As Integer) As Integer
    ControlHeight = CInt((MarginSize*(iPos-1) + RowHeight*iPos)*0.8)
 End Function
-
-Sub SetLanguageOptions(sLangCode As String)
-   sURL = sSSURL & sOptionsEndpoint & "/" & sLangCode
-  
-   oHTTP.Open "GET", sURL, False
-   oHTTP.SetRequestHeader "Content-Type", "application/json"
-   oHTTP.Send
    
-   sJSON = oHTTP.ResponseText
-
-   Dim aElements() As String
-   sStr = sJSON
-   iNextPos = InStr(1,sStr,"},")
-   iCount = -1
-   While iNextPos > 0 
-      iCount = iCount+1
-      iNextPos = InStr(iNextPos+1,sStr,"{""default")
-   Wend
-   
-   If iCount = -1 Then
-      iCount = 0
-   End If
-   
-   ReDim aLangOptionsList(iCount)
-   ReDim aLangOptionsTable(iCount,2)
-
-   iCount = 0
-   sStr = Mid(sStr,2)
-   iNextPos  = InStr(3,sStr,"{""default")
-   Do 
-      If iNextPos = 0 Then
-         sCurrent = sStr
-         sStr = ""
-      Else
-         sCurrent = Left(sStr,iNextPos)
-         sStr = Mid(sStr,iNextPos)
-      End If
-      sLabel = GetJSONField(sCurrent,"id")
-      aLangOptionsList(iCount) = sLabel
-      aLangOptionsTable(iCount,0) = sLabel
-      sDefaultValue = GetJSONField(sCurrent,"default")
-      aLangOptionsTable(iCount,1) = sDefaultValue
-      iCount = iCount + 1
-      iNextPos = InStr(2,sStr,"{""default")
-   Loop While sStr <> ""
-End Sub

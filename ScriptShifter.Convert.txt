@@ -4,8 +4,8 @@
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
-'Macro last modified: 09 December 2025
-'Macro version: 0.2.2
+'Macro last modified: 11 December 2025
+'Macro version: 0.3.0
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
@@ -16,11 +16,15 @@ Declare Function GetJSONField(sJSON As String, sField As String) As String
 Declare Function AdjustKorLangCode(sJSON As String, bIsName) As String
 Declare Sub GetLanguageList(ByRef aLangTable$())
 Declare Function IsRomanized(sString As String) As Integer
+Declare Function AddExclusion(sSubfield as String)
+Declare Sub SetExclusions(sExclusionList As String)
+Declare Function IsExcluded(sSubfield As String) As Integer
 
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sLangEndpoint = "languages"
 Global Const sTransEndpoint = "trans"
+Global aExcludeSubfields$()
 
 Sub Main
    Dim CS As Object
@@ -41,6 +45,7 @@ ReadJSON:
    sCfgCapitalization = GetJSONField(sJSON, "capitalize")
    sCfgDirection = GetJSONField(sJSON, "t_dir")
    sCfgAutoSelect = GetJSONField(sJSON, "autoselect")
+   sCfgExclusions = GetJSONField(sJSON, "exclude")
    Close #1
    On Error Resume Next
    Dim aLangTable$()
@@ -51,17 +56,27 @@ MakeFile:
    Goto ReadJSON:
 Convert:
 
+   ReDim aExcludeSubfields$(0)
+   SetExclusions(sCfgExclusions)   
+
    sDelimiterChar = Chr(31)
    sDelimiterHTML = "&#x01C2;"
 
 
    Dim sField As String           
 
+   bControlled = (CS.IsHeadingControlled(CS.CursorRow) <> 0)
+
+   If bControlled Then
+      CS.UncontrolHeading
+   End If
+
    'Insert BOM at end of field to force all Unicode to appear as numeric entities
    CS.EndCell
    CS.InsertText("&#xFEFF;")
 
    bool = CS.GetFieldLineUnicode(CS.CursorRow, sField)
+   
    If bool = FALSE Then
       MsgBox "Not viewing a MARC record. Exiting..."
       Exit Sub
@@ -85,7 +100,9 @@ Convert:
    sField = Mid(sField, 6)
    sConvertedFields = ""
 
+   sLangName = ""
    sLangCode = ""
+   sDirectionality = ""
    If sCfgAutoSelect = "true" Then
       sLangMARC = ""
       bSuccess = CS.GetFixedField("Lang",sLangMARC)
@@ -94,6 +111,8 @@ Convert:
          If (InStr(1,aLangTable(i,2),sLangMARC) > 0) And (Len(aLangTable(i,2)) < sLangLength) Then
             sLangLength = Len(aLangTable(i,2))
             sLangCode = aLangTable(i,1)
+            sLangName = aLangTable(i,0)
+            sDirectionality = aLangTable(i,3)
          End If   
       Next i   
    End if
@@ -128,7 +147,7 @@ Convert:
 
       Loop
       
-      If sSubfieldTag >= "0" And sSubfieldTag <= "9" Then
+      If (sSubfieldTag >= "0" And sSubfieldTag <= "9") Or IsExcluded(sTag & sSubfieldTag) Then
          sResponse = sCurrentSubfield
          GoTo AppendResponse            
       End If   
@@ -142,6 +161,7 @@ Convert:
       End If
       If InStr(1,sJSON,"korean") Then
          sJSON = AdjustKorLangCode(sJSON,bIsName)
+         sLangName = "Korean"
       End If
    
       Dim oHTTP As Object
@@ -157,16 +177,44 @@ Convert:
             sReqJSON = ReplaceAll(sReqJSON,Chr(34) & "auto" & Chr(34),Chr(34) & "s2r" & Chr(34))
          End If
       End If
+      
+      'Abort if directionality not supported
+
+      sConvDirection = ""
+      If InStr(1,sReqJSON,"r2s") > 0 Then
+         sConvDirection = "r2s"
+      Else
+         sConvDirection = "s2r"
+      End If
+      
+      If sDirectionality = "s2r" And sConvDirection = "r2s" Then
+         MsgBox(sLangName & " only supports script-to-roman conversion.")
+         Exit Sub
+      End If
+      If sDirectionality = "r2s" And sConvDirection = "s2r" Then
+         MsgBox(sLangName & " only supports roman-to-script conversion.")
+         Exit Sub
+      End If
+
+      
       'TEMPORARY: If s2r, Skip subfields that do not contain Unicode entities (i.e. likely already romanized)
-      If InStr(1,sJSON,"s2r") > 0 And InStr(1,sCurrentSubfield,"\u") = 0 Then
+      If sConvDirection = "s2r" And InStr(1,sCurrentSubfield,"\u") = 0 Then
          sResponse = sCurrentSubfield
          GoTo AppendResponse            
+      End If
+
+      'Remove exclusions from Request JSON
+      iExclusionPos = InStr(1,sReqJSON, Chr(34) & "exclude" & Chr(34))
+      If iExclusionPos > 0 Then
+         iExclusionEnd = InStr(iExclusionPos, sReqJSON, "],")
+         sReqJSON = Left(sReqJSON,iExclusionPos-1) & Mid(sReqJSON, iExclusionEnd+2)
       End If
 
       oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
       oHTTP.SetRequestHeader "Content-Type", "application/json"
       oHTTP.Send(sReqJSON)
-      
+
+
       If (oHTTP.Status <> "200") Then
          MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
          Exit Sub
@@ -212,7 +260,7 @@ AppendResponse:
       sResponse = ReplaceAll(sResponse,"&#x00dc;","U&#x0308;") 
       sResponse = ReplaceAll(sResponse,"&#x00fc;","u&#x0308;") 
       'Greek (remove stress marks, convert "O" to "Ho"
-      If InStr(1, sReqJSON, "greek") > 0 And InStr(1,sReqJSON,"s2r") > 0 Then
+      If InStr(1, sReqJSON, "greek") > 0 And sConvDirection = "s2r" > 0 Then
          sResponse = ReplaceAll(sResponse, "O ","Ho ")
          sResponse = ReplaceAll(sResponse,"&#x0301;","")
       End If
@@ -240,17 +288,27 @@ AppendResponse:
   Loop
 
   
-  If InStr(1,sReqJSON,"s2r") > 0 Then
+  If sConvDirection = "s2r" Then
      bool = CS.AddFieldLine(CS.CursorRow + 1, NewField & sConvertedFields)
-     CS.CursorRow = CS.CursorRow -1
+     CS.CursorRow = CS.CursorRow - 1
   Else
-     'bool = CS.SetFieldLine(CS.CursorRow, NewField & sConvertedFields)
-     'sOriginalField = ConvertLatin1(sOriginalField)
-     bool = CS.AddFieldLine(CS.CursorRow, NewField & sConvertedFields)
+     bool = CS.AddFieldLine(CS.CursorRow, NewField & sConvertedFields)     
   End If
 
   CS.SendKeys "", -1
   CS.SendKeys "%(ekl)", -1
+
+  If bControlled Then
+     If sConvDirection = "r2s" Then
+         CS.CursorRow = CS.CursorRow + 1
+     End If
+     CS.SendKeys "{F11}",-1
+     If sConvDirection = "r2s" Then
+         CS.CursorRow = CS.CursorRow - 1
+     End If
+  End If
+
+  
 End Sub
 
 Function AdjustKorLangCode(sJSON As String, bIsName) As String
@@ -325,8 +383,14 @@ Function GetJSONField(sJSON As String, sField As String) As String
    iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
    sStr = sJSON
    If iLoc > 0 Then
-      sStr = Mid(sStr,iLoc+Len(sField)+4)
-      sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
+      sStr = Mid(sStr,iLoc+Len(sField)+3)
+      sFirstChar = Left(sStr,1)
+      sStr = Mid(sStr,2)
+      If sFirstChar = Chr(34) Then
+         sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
+      ElseIf sFirstChar = "[" Then
+         sStr = Left(sStr,InStr(1,sStr,"]")-1)
+      End If
       GetJSONField = sStr
    Else
       GetJSONField = ""
@@ -353,7 +417,7 @@ Sub GetLanguageList(ByRef aLangTable$())
    Wend
    
    ReDim aLangList(iCount)
-   ReDim aLangTable(iCount,3)
+   ReDim aLangTable(iCount,4)
    
    iCount = 0
    Do 
@@ -373,11 +437,29 @@ Sub GetLanguageList(ByRef aLangTable$())
       sMARC = sDetails
       sMARC = Mid(sMARC,InStr(1,sMARC,"""marc_code"":""")+13)
       sMARC = Left(sMARC,InStr(1,sMARC,Chr(34))-1)
+
+
+      sStoR =  sDetails
+      sStoR = Mid(sStoR,InStr(sStoR,"""has_s2r"":")+10)
+      sStoR = Left(sStoR,InStr(sStoR,",")-1)
+     
+      sRtoS =  sDetails
+      sRtoS = Mid(sRtoS,InStr(sRtoS,"""has_r2s"":")+10)
+      sRtoS = Left(sRtoS,InStr(sRtoS,",")-1)
+       
+      sDirectionality = "both"
+      If sStoR = "true" And sRtoS = "false" Then
+         sDirectionality = "s2r"
+      ElseIf sStoR = "false" And sRtoS = "true" Then
+         sDirectionality = "r2s"
+      End If
+
       
       aLangList(iCount) = sLabel
       aLangTable(iCount,0) = sLabel
       aLangTable(iCount,1) = sCurrentLang
       aLangTable(iCount,2) = sMARC
+      aLangTable(iCount,3) = sDirectionality
       iCount = iCount + 1
       iNextPos = InStr(1,sResponse,"},")
    Loop While iNextPos > 0
@@ -396,4 +478,57 @@ Function IsRomanized(sString As String) As Integer
          End If
       End If  
    Wend
+End Function
+
+
+Sub SetExclusions(sExclusionList As String)
+   iNextComma = InStr(1,sExclusionList,",")   
+   While iNextComma > 0  
+      sNextExclusion = Left(sExclusionList,iNextComma-1)      
+      AddExclusion(sNextExclusion)
+      sExclusionList = Mid(sExclusionList,iNextComma+1)
+      iNextComma = InStr(1,sExclusionList,",")  
+   Wend
+   If sExclusionList <> "" Then
+      AddExclusion(sExclusionList)
+   End If
+End Sub
+
+Function AddExclusion(sSubfield as String)
+   sSubfield = ReplaceAll(sSubfield,"'","")
+   Dim aCurrentExclusions()
+   ReDim aCurrentExclusions(UBound(aExcludeSubfields$))
+   For i = 0 to UBound(aExcludeSubfields$)
+      If sSubfield = aExcludeSubfields(i) Then
+         MsgBox("Exlcusion already exists")
+         Exit Function
+      End If
+      aCurrentExclusions(i) = aExcludeSubfields(i)
+   Next i
+   
+   ReDim aExcludeSubfields(UBound(aExcludeSubfields$)+1)
+   For i = 0 to UBound(aCurrentExclusions)
+      aExcludeSubfields(i) = aCurrentExclusions(i)
+   Next i   
+   aExcludeSubfields(UBound(aExcludeSubfields$)-1) = sSubfield
+End Function
+
+Function IsExcluded(sSubfield As String) As Integer
+   If Len(sSubfield) = 3 Then
+      sSubfield = sSubfield & "a"
+   End If
+   For i = 0 to UBound(aExcludeSubfields$)
+      bExcluded = True
+      sExclude_i = aExcludeSubfields(i)
+      For j = 1 to 4
+         If (Mid(sExclude_i,j,1) <> Mid(sSubField,j,1) And (j = 4 Or Mid(sExclude_i,j,1) <> "x")) Then
+            bExcluded = False
+         End If
+      Next j
+      If bExcluded Then
+         IsExcluded = True
+         Exit Function
+      End If
+   Next i
+   IsExcluded = False
 End Function
