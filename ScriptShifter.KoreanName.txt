@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 09 December 2025
-'Macro version: 0.3.0
+'Macro last modified: 18 December 2025
+'Macro version: 0.3.1
 
 Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""no_change"",""t_dir"":""s2r"",""options"":{}}"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
@@ -53,15 +53,19 @@ Sub Main
    CS.InsertText("&#xFEFF;")
    
    CS.GetFieldLineUnicode iSelRow,sSelection
+   CS.EndCell
+   CS.SendKeys "",-1 
+   CS.SendKeys "{BS}",-1
+
    sSelection = GetUnicodeSubstring(sSelection,iSelCol,iSelLen)
 
-   'If selection starts or ends with a space, strip it and add it back in later.
-   If Left(sSelection,1) = " " Then
-      startSpace = " "
+   'If selection starts or ends with a space or period, strip it and add it back in later.
+   If Left(sSelection,1) = " " Or Left(sSelection,1) = "."Then
+      startSpace = Left(sSelection,1)
       sSelection = Mid(sSelection,2)
    End If
-   If Right(sSelection,1) = " " Then
-      endSpace = " "
+   If Right(sSelection,1) = " " Or Right(sSelection,1) = "." Then
+      endSpace = Right(sSelection,1) 
       sSelection = Left(sSelection,Len(sSelection)-1)
    End If
    

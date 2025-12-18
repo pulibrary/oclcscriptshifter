@@ -6,7 +6,7 @@
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
 'Macro last modified: 11 December 2025
-'Macro version: 0.3.0
+'Macro version: 0.3.1
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)

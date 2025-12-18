@@ -4,8 +4,8 @@
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
-'Macro last modified: 11 December 2025
-'Macro version: 0.3.0
+'Macro last modified: 18 December 2025
+'Macro version: 0.3.1
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
@@ -19,6 +19,8 @@ Declare Function IsRomanized(sString As String) As Integer
 Declare Function AddExclusion(sSubfield as String)
 Declare Sub SetExclusions(sExclusionList As String)
 Declare Function IsExcluded(sSubfield As String) As Integer
+Declare Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
+Declare Function GetCurrentField(CS As Object) As String
 
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
@@ -32,6 +34,23 @@ Sub Main
    Set CS = GetObject( , "Connex.Client" )
    On Error GoTo 0
    If CS Is Nothing Then Set CS = CreateObject( "Connex.Client" )
+
+
+   Dim oHTTP As Object
+   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+
+
+   Clipboard.Clear
+
+   CS.SendKeys "",-1
+   CS.SendKeys "^c",-1
+   CS.CopySelected
+
+   iSelRow = CS.CursorRow
+   iSelCol = CS.CursorColumn-5
+   sExcludedText = Clipboard.GetText
+   iSelLen = Len(sExcludedText)
+
    ChDir Environ("AppData") & "\OCLC\Connex\Macros"
    On Error GoTo MakeFile
 ReadJSON:
@@ -61,8 +80,7 @@ Convert:
 
    sDelimiterChar = Chr(31)
    sDelimiterHTML = "&#x01C2;"
-
-
+   
    Dim sField As String           
 
    bControlled = (CS.IsHeadingControlled(CS.CursorRow) <> 0)
@@ -70,23 +88,11 @@ Convert:
    If bControlled Then
       CS.UncontrolHeading
    End If
-
-   'Insert BOM at end of field to force all Unicode to appear as numeric entities
-   CS.EndCell
-   CS.InsertText("&#xFEFF;")
-
-   bool = CS.GetFieldLineUnicode(CS.CursorRow, sField)
-   
-   If bool = FALSE Then
-      MsgBox "Not viewing a MARC record. Exiting..."
-      Exit Sub
-   End If
-   
+      
+   sField = GetCurrentField(CS)
+         
    'Replace EOP character in indicator fields with period
    sField = ReplaceAll(sField, "&#x220E;",".")
-
-   'Remove BOM
-    sField = ReplaceAll(sField, "&#xFEFF;","")
   
    sOriginalField = sField
 
@@ -94,11 +100,20 @@ Convert:
    sField = ReplaceAll(sField, sDelimiterHTML,sDelimiterChar)
    
    'Pull the tag name and indicators
-   NewField = Left(sField, 5)
-   sTag = Left(NewField, 3)
+   sConvertedFields = Left(sField, 5)
+   sTag = Left(sConvertedFields, 3)
    'The text of the field
    sField = Mid(sField, 6)
-   sConvertedFields = ""
+
+   bExcludeSelection = False
+
+   If iSelLen > 0 Then
+      bExcludeSelection = True
+      sExcludedText = GetUnicodeSubstring(sField,iSelCol,iSelLen)
+      iExcludeStart = Len(GetUnicodeSubstring(sField,1,iSelCol))
+      iExcludeEnd = iExcludeStart + Len(sExcludedText)      
+      sExcludedText = ReplaceAll(sExcludedText,sDelimiterChar,sDelimiterHTML)
+   End If
 
    sLangName = ""
    sLangCode = ""
@@ -122,30 +137,53 @@ Convert:
 
    bFieldHasNonRoman = IsRomanized(ConvertHTMLEntities(sField))
 
+   bInExclusion = False
+
+   iFieldPos = 1
+
+   bSSError = False
+
    Do
-      sCurrentSubfield = sField
-      iDelimPos = InStr(2,sField,sDelimiterChar)
-      If iDelimPos > 0 Then
-        sCurrentSubfield = Left(sField,iDelimPos-1)
-        sField = Mid(sField,iDelimPos)
+      iDelimPos = InStr(iFieldPos+1,sField,sDelimiterChar)
+      
+      'MsgBox(iFieldPos & Chr(10) & iDelimPos & Chr(10) & iExcludeStart & Chr(10) & iExcludeEnd)
+      
+      If(bExcludeSelection And iFieldPos < iExcludeEnd And _ 
+         (iDelimPos >= iExcludeStart Or iDelimPos = 0)) Then
+         bInExclusion = True
+         iDelimPos = iExcludeStart
       End If
-   
-     
+
+      If iDelimPos > 0 Then
+        sCurrentSubfield = Mid(sField,iFieldPos,iDelimPos-iFieldPos)
+      Else
+        sCurrentSubfield = Mid(sField,iFieldPos,Len(sField)-iFieldPos+1) 
+      End If
+
+      'MsgBox(sCurrentSubfield)
+
+      iFieldPos = iFieldPos + Len(sCurrentSubfield)
+           
       sSubfieldTag = ""
       If Left(sCurrentSubfield,1) = sDelimiterChar Then
          sSubfieldTag = Mid(sCurrentSubfield,2,1)
          sCurrentSubfield = Mid(sCurrentSubfield,3)
       End If
 
-
       sSuffix = ""
-      sLastChar = Mid(sCurrentSubfield,Len(sCurrentSubfield))
-      Do While (sLastChar = " ") Or (sLastChar = ":") Or (sLastChar = ";" And Mid(sCurrentSubfield,Len(sCurrentSubfield)-1,1) = " ")
-         sSuffix = sLastChar & sSuffix
-         sCurrentSubfield = Left(sCurrentSubfield,Len(sCurrentSubfield)-1)
-         sLastChar = Mid(sCurrentSubfield,Len(sCurrentSubfield))
+      If Len(sCurrentSubfield) > 0 Then
+         sLastChar = Right(sCurrentSubfield,1) 
+         Do While (Len(sCurrentSubfield) > 0) And _ 
+               ((sLastChar = " ") Or (sLastChar = ":") Or _ 
+               (sLastChar = ".") Or (Right(sCurrentSubfield,2) = " ;"))
+            sSuffix = sLastChar & sSuffix
+            sCurrentSubfield = Left(sCurrentSubfield,Len(sCurrentSubfield)-1)
+            sLastChar = Right(sCurrentSubfield,1) 
+            'MsgBox("*" & sSuffix & "*" & Chr(10) & "*" & sLastChar & "*" & Chr(10) & "*" & sCurrentSubfield & "*")
+         Loop
+      End If
 
-      Loop
+      'MsgBox("*" & sCurrentSubfield & "*" & sSuffix & "*")
       
       If (sSubfieldTag >= "0" And sSubfieldTag <= "9") Or IsExcluded(sTag & sSubfieldTag) Then
          sResponse = sCurrentSubfield
@@ -154,6 +192,7 @@ Convert:
  
       sCurrentSubfield = ReplaceAll(sCurrentSubfield,Chr(34),"\" & Chr(34))
       sCurrentSubfield = ConvertHTMLEntities(sCurrentSubfield) 
+      'MsgBox(sCurrentSubfield)
      
       bIsName = False
       If (sTag = "100" Or sTag = "600" Or sTag = "700" or sTag = "800") And (sSubfieldTag = "a" Or sSubfieldTag = "") Then
@@ -164,8 +203,6 @@ Convert:
          sLangName = "Korean"
       End If
    
-      Dim oHTTP As Object
-      Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
       Dim sReqJSON As String
       sReqJSON = sJSON
       sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & sCurrentSubfield & """,""lang")
@@ -203,6 +240,11 @@ Convert:
          GoTo AppendResponse            
       End If
 
+      If Len(sCurrentSubfield) = 0 Then
+         sResponse = ""
+         GoTo AppendResponse
+      End If
+
       'Remove exclusions from Request JSON
       iExclusionPos = InStr(1,sReqJSON, Chr(34) & "exclude" & Chr(34))
       If iExclusionPos > 0 Then
@@ -212,15 +254,26 @@ Convert:
 
       oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
       oHTTP.SetRequestHeader "Content-Type", "application/json"
+      
+      'MsgBox(sReqJSON)
+
       oHTTP.Send(sReqJSON)
-
-
-      If (oHTTP.Status <> "200") Then
+      
+ 
+      'MsgBox(oHTTP.status)
+      If (oHTTP.Status <> "200" And oHTTP.Status <> "500") Then
          MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
          Exit Sub
       End If
 
+      If oHTTP.Status = "500" Then
+         bSSError = True
+         sResponse = sCurrentSubfield
+         GoTo AppendResponse
+      End If         
+
       sResponse = oHTTP.ResponseText
+      'MsgBox(sResponse)
       sResponse = ReplaceAll(sResponse,"{""output"":""","")
       sResponse = Left(sResponse,InStr(1,sResponse,""",""warnings")-1)
       sResponse = ReplaceAll(sResponse, Chr(10),"")
@@ -238,14 +291,14 @@ Convert:
          sResponse = Left(sResponse,iSpacePos-1) & "," & Mid(sResponse,iSpacePos)
         End If
       End If
-   
+
+AppendResponse:   
       iIndexLoc = Instr(1,sResponse,"\u") 
       While(iIndexLoc > 0)
          sResponse = Left(sResponse,iIndexLoc-1) & "&#x" & Mid(sResponse,iIndexLoc+2,4) & ";" & Mid(sResponse,iIndexLoc+6)
          iIndexLoc = Instr(1,sResponse,"\u") 
       Wend
       
-AppendResponse:
       'TEMPORARY: Convert precomposed vowels to decomposed
       'Korean
       sResponse = ReplaceAll(sResponse,"&#x014e;","O&#x0306;")      
@@ -271,28 +324,35 @@ AppendResponse:
       End If
       sResponse = Trim(sResponse) & sSuffix
       sConvertedFields = sConvertedFields & sResponse
-   Loop While iDelimPos > 0
+      If(bInExclusion) Then
+         bInExclusion = False
+         sConvertedFields = sConvertedFields & sExcludedText
+         iFieldPos = iExcludeEnd
+      End If
+
+   Loop While iDelimPos > 0 And iFieldPos <= Len(sField)
    
-   errors = ValidateField(NewField)
-   If Len(errors) > 0 Then
-      MsgBox(errors)
-   End If
+   'errors = ValidateField(sConvertedFields)
+   'If Len(errors) > 0 Then
+   '   MsgBox(errors)
+   'End If
       
   'Restore EOP characters to tag and indicator fields
   i = 5
   Do While(i > 0)
-     If(Mid(NewField,i,1) = ".") Then
-         NewField = Left(NewField,i-1) & "&#x220E;" & Mid(NewField,i+1)
+     If(Mid(sConvertedFields,i,1) = ".") Then
+         sConvertedFields = Left(sConvertedFields,i-1) & "&#x220E;" & Mid(sConvertedFields,i+1)
      End If
      i = i - 1
   Loop
 
+  sConvertedFields = ConvertLatin1(sConvertedFields)
   
   If sConvDirection = "s2r" Then
-     bool = CS.AddFieldLine(CS.CursorRow + 1, NewField & sConvertedFields)
+     bool = CS.AddFieldLine(CS.CursorRow + 1, sConvertedFields)
      CS.CursorRow = CS.CursorRow - 1
   Else
-     bool = CS.AddFieldLine(CS.CursorRow, NewField & sConvertedFields)     
+     bool = CS.AddFieldLine(CS.CursorRow, sConvertedFields)     
   End If
 
   CS.SendKeys "", -1
@@ -307,8 +367,10 @@ AppendResponse:
          CS.CursorRow = CS.CursorRow - 1
      End If
   End If
-
   
+  If bSSError Then
+     MsgBox("Not all subfields were converted.  Please check the input field for errors.")
+  End If  
 End Sub
 
 Function AdjustKorLangCode(sJSON As String, bIsName) As String
@@ -365,18 +427,19 @@ End Function
 
 Function ConvertLatin1(sStr As String) As String
    For i = 128 to 255
-      sStr = ReplaceAll(sStr, Chr(i), "&#x" & Hex(i) & ";")
+      sStr = ReplaceAll(sStr, Chr(i), "&#x00" & Hex(i) & ";")
    Next i
    ConvertLatin1 = sStr
 End Function
 
 Function ConvertHTMLEntities(sStr As String) As String
-   iPos = InStr(1,sStr,"&#x")
+   sConverted = sStr
+   iPos = InStr(1,sConverted,"&#x")
    While iPos > 0
-      sStr = Left(sStr,iPos-1) & "\u" & Mid(sStr,iPos+3,4) & Mid(sStr,iPos+8)   
-      iPos = InStr(1,sStr,"&#x") 
+      sConverted = Left(sConverted,iPos-1) & "\u" & Mid(sConverted,iPos+3,4) & Mid(sConverted,iPos+8)   
+      iPos = InStr(1,sConverted,"&#x") 
    Wend
-   ConvertHTMLEntities = sStr
+   ConvertHTMLEntities = sConverted
 End Function
 
 Function GetJSONField(sJSON As String, sField As String) As String
@@ -473,7 +536,7 @@ Function IsRomanized(sString As String) As Integer
       iPos = InStr(iPos,sString,"\u")
       If iPos > 0 Then
          sCode = Mid(sString,iPos+2,4)
-         If sCode >= "0370" Then
+         If (sCode >= "0370" And sCode <= "FE1F") Or (sCode >= "FE30") Then
             IsRomanized = False
          End If
       End If  
@@ -531,4 +594,66 @@ Function IsExcluded(sSubfield As String) As Integer
       End If
    Next i
    IsExcluded = False
+End Function
+
+Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
+   iStrLen = Len(sStr)
+   iActualPos = 1
+   iActualLen = 0
+   sSubstring = ""
+   sChar = ""
+   bInEntity = False
+   For i = 1 to iStrLen
+      If Mid(sStr,i,3) = "&#x" Then
+         bInEntity = True
+      ElseIf Mid(sStr,i,1) = ";" Then
+         bInEntity = False
+      End If
+      If iActualPos >= iStart And iActualLen < iLength Then
+         sSubstring = sSubstring & Mid(sStr,i,1)
+         If Not bInEntity Then
+            iActualLen = iActualLen + 1
+         End If
+      End If
+      If Not bInEntity Then
+         iActualPos = iActualPos + 1
+      End If
+   Next i
+   GetUnicodeSubstring = sSubstring
+End Function
+ 
+Function GetCurrentField(CS As Object) As String
+
+   'Insert BOM at beginning of field to force all Unicode to appear as numeric entities
+   CS.EndCell
+   CS.InsertText("&#xFEFF;")
+   
+   bSuccess = CS.GetFieldLineUnicode(CS.CursorRow,sFieldX)
+   CS.EndCell
+   CS.SendKeys "",-1 
+   CS.SendKeys "{BS}",-1
+   
+   'Remove BOM
+   sFieldX = ReplaceAll(sFieldX, "&#xFEFF;","")
+   
+   CS.CopyField   
+   sFieldY = Clipboard.GetText
+      
+   sFieldZ = ""
+   
+   y = 1
+   For x = 1 to Len(sFieldX)
+      If i <= Len(sFieldX) - 7 And Mid(sFieldX,x,3) = "&#x" Then
+         sFieldZ = sFieldZ & Mid(sFieldX,x,8) 
+         x = x + 7
+      Else
+         If Mid(sFieldX,x,1) <> Mid(sFieldY,y,1) And Mid(sFieldY,y,1) <> "?" Then
+            sFieldZ = sFieldZ & Mid(sFieldY,y,1)
+         Else
+            sFieldZ = sFieldZ & Mid(sFieldX,x,1)
+         End If
+      End If
+      y = y + 1
+   Next x
+   GetCurrentField = sFieldZ
 End Function
