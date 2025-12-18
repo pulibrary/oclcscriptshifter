@@ -4,6 +4,12 @@ This OCLC Connexion macro usese the Library of Congress "ScriptShifter" service 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
+(Note: Depending on your computer's security settings, trying to run the installer may pop up a warning that "Windows protected Your PC". If you receive this warning, you can proceed with the installation by clicking "More info" and then "Run anyway".)
+
+Alternatively, you can download this MBK file to your macros directory (e.g. `C:\Users\[your user id]\AppData\Roaming\OCLC\Connex\Macros\`).
+
+<a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/ScriptShifter.mbk">ScriptShifter.mbk</a>
+
 This macro can be used for any script supported by ScriptShifter.  However, as shown below, there are some special customizations for Korean.
 
 ## Configuration
@@ -29,13 +35,15 @@ The following can be done for any or all of these macros:
 
 <img src="./img/settings.jpg"/>
 
-This settings panel will appear the first time you run the "Convert" macro.  (You can bring it back up by running the "Settings" macro).  If you already have a record open in Connexion, the language will be auto-detected from the 008 field, but you can select a different language in the language menu (and turn off auto-selection if desired).  Be sure to confirm the direction of the conversion and the capitalization settings as well.  (Setting the direction to "auto-detect" will attempt a roman-to-script conversion if a given subfield only contains characters below U+0370, or script-to-roman otherwise.)  You do not need to re-open the settings panel each time you perform a conversion, unless you want to change these defaults.  (Note: If you try to run the "Settings" menu and nothing comes up, look for a flashing icon in your taskbacr and click that.)
+This settings panel will appear the first time you run the "Convert" macro.  (You can bring it back up by running the "Settings" macro.)  If you already have a record open in Connexion, the language will be auto-detected from the 008 field, but you can select a different language in the "Language" menu (and turn off auto-selection if desired).  Be sure to confirm the direction of the conversion and the capitalization settings as well.  (Setting the direction to "auto-detect" will attempt a roman-to-script conversion if a given subfield only contains characters below U+0370, or script-to-roman otherwise.)  You do not need to re-open the settings panel each time you perform a conversion, unless you want to change these defaults.  
+
+The "Exclude subfields" section allows you to specify that certain subfields should always be excluded from conversion.  Subfields can be indicated with the three-digit tag number followed by the subfield code, with 'x' as the wildcard.  So, in the example above, subfield 'e' of any 1xx or 7xx field will be excluded, as well as 856u and subfield 'i' of any field.  Subfields with numeric codes (0, 2, 6, etc.) are always excluded from conversion.  Entries can be added to this list by typing in the field to the left and clicking "Add".  An entry can be removed from the list by selecting it and clicking "Delete".
 
 **NOTE**: There is a known bug in OCLC Connexion in which macro dialog boxes may not appear in front of the Connexion window.  If you try to open the settings panel (which will open automatically the first time you run the macro), it may appear that nothing happens.  If this is the case, check the Windows task bar for a flashing icon.  Clicking it should bring up the settings dialog.
 
 ## Running the 'Convert' macro
 
-Simply place the cursor in the field you would like to convert, then run the 'Convert' macro.  A parallel field will be created below the current field with the converted text.
+Simply place the cursor in the field you would like to convert, then run the 'Convert' macro.  A parallel field will be created with the converted text. (The fields will be reordered if needed so that the non-roman field appears before the romanized one.) Note that if the field being converted is a controlled heading, it will be temporarily uncontrolled while the converstion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
 
 ## Korean name conversion
 
