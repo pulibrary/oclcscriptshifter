@@ -45,7 +45,7 @@ The "Exclude subfields" section allows you to specify that certain subfields sho
 
 Simply place the cursor in the field you would like to convert, then run the 'Convert' macro.  A parallel field will be created with the converted text. (The fields will be reordered if needed so that the non-roman field appears before the romanized one.) Note that if the field being converted is a controlled heading, it will be temporarily uncontrolled while the converstion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
 
-If a field contains text that you do not wish to convert, simply highlight the text before running the macro, and the text will be passed through to the output unchanged. If there are certain specific subfields that you always want to exclude from conversion, these can be specified in the settings panel (see the previous section for details).  These subfields will be exlcuded even if they are not highlighted.
+If part of a field contains text that you do not wish to convert, simply highlight that text before running the macro, and that portion of the field will be passed through to the output unchanged. If there are certain specific subfields that you always want to exclude from conversion, these can be specified in the settings panel (see the previous section for details).  These subfields will be exlcuded even if they are not highlighted.
 
 ## Korean name conversion
 
