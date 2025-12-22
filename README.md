@@ -2,7 +2,7 @@
 
 This OCLC Connexion macro usese the Library of Congress "ScriptShifter" service (https://bibframe.org/scriptshifter) to convert between scripts and create parallel fields in WorldCat records.  The installer can be downloaded here:
 
-<a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.mbk</a>
+<a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
 (Note: Depending on your computer's security settings, trying to run the installer may pop up a warning that "Windows protected Your PC". If you receive this warning, you can proceed with the installation by clicking "More info" and then "Run anyway".)
 
@@ -35,7 +35,7 @@ The following can be done for any or all of these macros:
 
 <img src="./img/settings.jpg"/>
 
-This settings panel will appear the first time you run the "Convert" macro.  (You can bring it back up by running the "Settings" macro.)  If you already have a record open in Connexion, the language will be auto-detected from the 008 field, but you can select a different language in the "Language" menu (and turn off auto-selection if desired).  Be sure to confirm the direction of the conversion and the capitalization settings as well.  (Setting the direction to "auto-detect" will attempt a roman-to-script conversion if a given subfield only contains characters below U+0370, or script-to-roman otherwise.)  You do not need to re-open the settings panel each time you perform a conversion, unless you want to change these defaults.  
+This settings panel will appear the first time you run the "Convert" macro.  (You can bring it back up by running the "Settings" macro.)  If you already have a record open in Connexion, the language will be auto-detected from the "Lang" fixed field (i.e. field 008), but you can select a different language in the "Language" menu (and turn off auto-selection if desired).  Be sure to confirm the direction of the conversion and the capitalization settings as well.  (Setting the direction to "auto-detect" will attempt a roman-to-script conversion if a given subfield only contains characters below U+0370 or between U+FE20 and U+FE2F, or script-to-roman otherwise.)  You do not need to re-open the settings panel each time you perform a conversion, unless you want to change these defaults.  
 
 The "Exclude subfields" section allows you to specify that certain subfields should always be excluded from conversion.  Subfields can be indicated with the three-digit tag number followed by the subfield code, with 'x' as the wildcard.  So, in the example above, subfield 'e' of any 1xx or 7xx field will be excluded, as well as 856u and subfield 'i' of any field.  Subfields with numeric codes (0, 2, 6, etc.) are always excluded from conversion.  Entries can be added to this list by typing in the field to the left and clicking "Add".  An entry can be removed from the list by selecting it and clicking "Delete".
 
@@ -45,7 +45,7 @@ The "Exclude subfields" section allows you to specify that certain subfields sho
 
 Simply place the cursor in the field you would like to convert, then run the 'Convert' macro.  A parallel field will be created with the converted text. (The fields will be reordered if needed so that the non-roman field appears before the romanized one.) Note that if the field being converted is a controlled heading, it will be temporarily uncontrolled while the converstion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
 
-If a field contains text that you do not wish to convert, simply highlight the text before running the macro, and the text will be passed through to the output unchanged. If there are certain specific subfields that you always want to exclude from conversion, these can be specified in the settings panel (see the previous section for details).  These subfields will be exlcuded even if they are not highlighted.
+If part of a field contains text that you do not wish to convert, simply highlight that text before running the macro, and that portion of the field will be passed through to the output unchanged. If there are certain specific subfields that you always want to exclude from conversion, these can be specified in the settings panel (see the previous section for details).  These subfields will be exlcuded even if they are not highlighted.
 
 ## Korean name conversion
 
@@ -53,4 +53,4 @@ ScriptShifter has a special setting for Korean names.  This is automatically use
 
 ## Acknowledgments
 
-Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Flora Kim, Hyoungbae Lee, and Yang Wang, as well as Stefano Cossu, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
+Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Flora Kim, Hyoungbae Lee, Michael Meerson, and Yang Wang, as well as Stefano Cossu, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
