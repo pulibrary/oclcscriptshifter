@@ -4,8 +4,8 @@
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Macro Created: 17 April 2025
-'Macro last modified: 18 December 2025
-'Macro version: 0.3.1
+'Macro last modified: 22 December 2025
+'Macro version: 0.3.2
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ValidateField(sStr As String) As String
@@ -174,7 +174,7 @@ Convert:
       If Len(sCurrentSubfield) > 0 Then
          sLastChar = Right(sCurrentSubfield,1) 
          Do While (Len(sCurrentSubfield) > 0) And _ 
-               ((sLastChar = " ") Or (sLastChar = ":") Or _ 
+               ((sLastChar = " ") Or (sLastChar = ":") Or (sLastChar = "/") Or _ 
                (sLastChar = ".") Or (Right(sCurrentSubfield,2) = " ;"))
             sSuffix = sLastChar & sSuffix
             sCurrentSubfield = Left(sCurrentSubfield,Len(sCurrentSubfield)-1)
@@ -198,10 +198,26 @@ Convert:
       If (sTag = "100" Or sTag = "600" Or sTag = "700" or sTag = "800") And (sSubfieldTag = "a" Or sSubfieldTag = "") Then
             bIsName = True
       End If
+      
+      'Language-specific adjustments to input
+      
       If InStr(1,sJSON,"korean") Then
          sJSON = AdjustKorLangCode(sJSON,bIsName)
          sLangName = "Korean"
       End If
+   
+      If InStr(1,sJSON,"chinese") Then
+         sJSON = ReplaceAll(sJSON, Chr(34) & "chinese" & Chr(34),Chr(34) & "chinese_numerals" & Chr(34))
+         If bIsName Then
+            sJSON = ReplaceAll(sJSON, Chr(34) & "options" & Chr(34) & ":{}",Chr(34) & "options" & _ 
+               Chr(34) & ":{" & Chr(34) & "marc_field" & Chr(34) & ":" & Chr(34) & sTag & Chr(34) & "}")
+         End If
+      End If
+   
+      If (sLangCode = "hebrew") Then
+         sJSON = ReplaceAll(sJSON, Chr(34) & "options" & Chr(34) & ":{}",Chr(34) & "options" & _ 
+               Chr(34) & ":{" & Chr(34) & "genre" & Chr(34) & ":" & Chr(34) & "modern" & Chr(34) & "}")
+      End If    
    
       Dim sReqJSON As String
       sReqJSON = sJSON

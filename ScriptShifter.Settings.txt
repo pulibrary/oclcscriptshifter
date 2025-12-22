@@ -6,7 +6,7 @@
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
 'Macro last modified: 18 December 2025
-'Macro version: 0.3.1
+'Macro version: 0.3.2
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
@@ -20,7 +20,7 @@ Declare Function AddExclusion(sSubfield as String)
 Declare Function DeleteExclusion(sSubfield as String)
 Declare Sub SetExclusions(sExclusionList As String)
 
-Global Const sVersion = "v0.3.1"
+Global Const sVersion = "v0.3.2"
 Global Const RowHeight = 20
 Global Const ColumnWidth = 50   
 Global Const MarginSize = 10
@@ -125,7 +125,7 @@ LoadData:
       DropListBox Column(2), Row(1), ControlWidth(2),ControlHeight(10),aLangList$(),.LangBox
       Text Column(4),Row(1),ControlWidth(2),ControlHeight(1),"",.Directionality
          
-      CheckBox Column(1),Row(2),ControlWidth(4),ControlHeight(1),"Auto-select language based on field 008",.AutoSelectLang
+      CheckBox Column(1),Row(2),ControlWidth(4),ControlHeight(1),"Auto-select language based on 'Lang' fixed field",.AutoSelectLang
       
       Text Column(1),Row(3),ControlWidth(1),ControlHeight(1), "Direction:"
       OptionGroup .Direction
