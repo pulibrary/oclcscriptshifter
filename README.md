@@ -49,8 +49,8 @@ If part of a field contains text that you do not wish to convert, simply highlig
 
 ## Korean name conversion
 
-ScriptShifter has a special setting for Korean names.  This is automatically used for fields 100, 600, 700, and 800.  For other fields, you can apply name formatting by highlighting the text in the original Korean script field, then running the 'KoreanName' macro.  This will reconvert the highlighted text using the Korean Name setting, and replace the romanized text in the parallel field.
+ScriptShifter has a special setting for Korean names.  This is automatically used for fields 100a, 600a, 700a, and 800a.  For other fields (such as 245c), formatting Korean names is a two-step process. First, convert the entire field using the "Convert" macro as you normally would.  This will generate the parallel romanized field.  Second, highlight the Korean name(s) in the non-Roman field, then run the "KoreanName" macro.  This will reconvert the highlighted text using the Korean Name setting, replacing the romanized text in the parallel field.
 
 ## Acknowledgments
 
-Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Flora Kim, Hyoungbae Lee, Michael Meerson, and Yang Wang, as well as Stefano Cossu, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
+Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Flora Kim, Hyoungbae Lee, Michael Meerson, Jenna Moon, and Yang Wang, as well as Stefano Cossu, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
