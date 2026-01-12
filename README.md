@@ -49,7 +49,7 @@ If part of a field contains text that you do not wish to convert, simply highlig
 
 ## Korean name conversion
 
-ScriptShifter has a special setting for Korean names.  This is automatically used for fields 100a, 600a, 700a, and 800a.  For other fields (such as 245c), formatting Korean names is a two-step process. First, convert the entire field using the "Convert" macro as you normally would.  This will generate the parallel romanized field.  Second, highlight the Korean name(s) in the non-Roman field, then run the "KoreanName" macro.  This will reconvert the highlighted text using the Korean Name setting, replacing the romanized text in the parallel field.
+ScriptShifter has a special setting for Korean names. The 'Convert' macro is used to format romanized Korean names for fields 100a, 600a, 700a, and 800a.  For other fields (such as 245c), formatting Korean names is a two-step process. First, convert the entire field using the 'Convert' macro as you normally would.  This will generate the parallel romanized field.  Second, highlight the Korean name(s) in the non-Roman field, then run the 'KoreanName' macro.  This will reconvert the highlighted text using the Korean Name setting, replacing the romanized text in the parallel field.
 
 ## Acknowledgments
 
