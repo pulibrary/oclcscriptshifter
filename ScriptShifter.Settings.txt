@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 18 December 2025
-'Macro version: 0.3.2
+'Macro last modified: 08 January 2026
+'Macro version: 0.3.3
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
@@ -16,11 +16,11 @@ Declare Function ControlWidth(iPos As Integer) As Integer
 Declare Function ControlHeight(iPos As Integer) As Integer
 Declare Sub GetLanguageList()
 Declare Function GetJSONField(sJSON As String, sField As String) As String
-Declare Function AddExclusion(sSubfield as String)
-Declare Function DeleteExclusion(sSubfield as String)
+Declare Sub AddExclusion(sSubfield as String)
+Declare Sub DeleteExclusion(sSubfield as String)
 Declare Sub SetExclusions(sExclusionList As String)
 
-Global Const sVersion = "v0.3.2"
+Global Const sVersion = "v0.3.3"
 Global Const RowHeight = 20
 Global Const ColumnWidth = 50   
 Global Const MarginSize = 10
@@ -52,6 +52,7 @@ Sub Main
    
    Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
 
+   'Open settings file, or create it if it does not exist
    ChDir Environ("AppData") & "\OCLC\Connex\Macros"
    On Error GoTo MakeFile
    Open sSettingsFilename For Input As #1
@@ -64,6 +65,7 @@ ReadJSON:
    If InStr(1,sJSON,"{") = 0 Then
       GoTo MakeFile
    End If
+   'Load defaults form settings file
    sCfgLang = GetJSONField(sJSON,"lang")
    sCfgCapitalization = GetJSONField(sJSON, "capitalize")
    sCfgDirection = GetJSONField(sJSON, "t_dir")
@@ -90,11 +92,12 @@ LoadData:
       Exit Sub
    End If
 
-
    sLangCode = ""
    sLangLabel = ""
-   
-   
+      
+   'Select SS language based on config file, or Lang fixed field if auto-selection is enabled
+   'If SS defines multiple languages for a MARC language code, select the shortest 
+   '(Assumes this is a reasonable "default", but has exceptions for Chinese and Korean)
    If sCfgAutoSelect = "false" Then
       For i = 0 to UBound(aLangTable$)
          If sCfgLang = aLangTable$(i,1) Then
@@ -105,7 +108,11 @@ LoadData:
    Else
       sLangLength = 999
       For i = 0 to UBound(aLangTable$)
-         If (InStr(1,aLangTable$(i,2),sLangMARC) > 0) And (Len(aLangTable$(i,2)) < sLangLength) And aLangTable$(i,1) <> "korean_names" Then
+         If (InStr(1,aLangTable$(i,2),sLangMARC) > 0) And _ 
+            (Len(aLangTable$(i,2)) < sLangLength) And _ 
+            (aLangTable$(i,1) <> "korean_names") And _ 
+            (aLangTable$(i,1) <> "chiense") Then
+            
             sLangLength = Len(aLangTable$(i,2))
             sLangCode = aLangTable$(i,1)
             sLangLabel = aLangTable$(i,0)
@@ -120,6 +127,10 @@ LoadData:
    ReDim aExcludeSubfields$(0)
    SetExclusions(sCfgExclusions)   
    
+   'Main dialog definition.  Rather than give exact cooridnates for each control, a simplified 'grid' model is used
+   'based on 'cell' sizes defined by global variables, and functions that convert them to coordinates.  This allows
+   'one to specify e.g. "place this button in column 2, row 3" 
+      
    Begin Dialog SSDialog 10,10,Column(6), Row(9),"ScriptShifter Settings",.DialogFunc
       Text Column(1), Row(1), ControlWidth(1), ControlHeight(1), "Language:"
       DropListBox Column(2), Row(1), ControlWidth(2),ControlHeight(10),aLangList$(),.LangBox
@@ -153,10 +164,12 @@ LoadData:
    Dim dlg as SSDialog    
 On Error Resume Next
    bResult = Dialog(dlg)
+   
    If bResult = 0 Then 'Cancel Button
       Exit Sub
    End If
-   'OK button
+   
+   'OK button - write selections in dialog to settings file on disk
    sSelectedLang = aLangTable$(dlg.LangBox,1)
    sDirection = "auto"
    If dlg.Direction = 1 Then
@@ -194,6 +207,10 @@ On Error Resume Next
    Close #1
 End Sub
 
+'*************************************
+'Replace all instances of a substring
+'*************************************
+
 Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
    place = 1
    If InStr(place, sStr, sFind) Then
@@ -205,6 +222,10 @@ Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As Stri
    End If
    ReplaceAll = sStr
 End Function
+
+'***************************************************************************************
+'Get a current version of the SS language list and populate the in-memory language table
+'***************************************************************************************
 
 Sub GetLanguageList   
    sURL = sSSURL & sLangEndpoint
@@ -218,7 +239,6 @@ Sub GetLanguageList
       bSSerror = True
       Exit Sub
    End If
-
    
    sResponse = oHTTP.ResponseText
    
@@ -243,22 +263,11 @@ Sub GetLanguageList
       sDetails = Mid(sCurrentLang, InStr(1, sCurrentLang, "{"))
       sCurrentLang = Left(sCurrentLang, InStr(1,sCurrentLang, Chr(34))-1)
       
-      sLabel = sDetails
-      sLabel = Mid(sLabel,InStr(1,sLabel,"""label"":""")+9)
-      sLabel = Left(sLabel,InStr(1,sLabel,Chr(34))-1)
-      
-      sMARC = sDetails
-      sMARC = Mid(sMARC,InStr(1,sMARC,"""marc_code"":""")+13)
-      sMARC = Left(sMARC,InStr(1,sMARC,Chr(34))-1)  
-      
-      sStoR =  sDetails
-      sStoR = Mid(sStoR,InStr(sStoR,"""has_s2r"":")+10)
-      sStoR = Left(sStoR,InStr(sStoR,",")-1)
-     
-      sRtoS =  sDetails
-      sRtoS = Mid(sRtoS,InStr(sRtoS,"""has_r2s"":")+10)
-      sRtoS = Left(sRtoS,InStr(sRtoS,",")-1)
-       
+      sLabel = GetJSONField(sDetails,"label")
+      sMARC = GetJSONField(sDetails,"marc_code")      
+      sStoR = GetJSONField(sDetails,"has_s2r")     
+      sRtoS = GetJSONField(sDetails,"has_r2s")
+             
       sDirectionality = ""
       If sStoR = "true" And sRtoS = "false" Then
          sDirectionality = "Script-to-roman only"
@@ -275,6 +284,10 @@ Sub GetLanguageList
       iNextPos = InStr(1,sResponse,"},")
    Loop While iNextPos > 0
 End Sub
+
+'**********************************
+'Event handler for settings dialog
+'**********************************
 
 Function DialogFunc%(DlgItem$, Action%, SuppValue&)
    Select Case Action%
@@ -297,10 +310,10 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
       End If
    Case 2 ' Value changing or button pressed
       Select Case DlgItem$
-      Case "LangBox"
+      Case "LangBox" 'update directionality label based on selected language
          sLangCode = aLangTable$(DlgValue(DlgItem$),1)
          DlgText "Directionality",aLangTable$(DlgValue("LangBox"),3)
-      Case "Add"
+      Case "Add" 'validate and add exclusion
          DialogFunc = True 
          sSubfield = DlgText("ExcludeText")
          If Not sSubfield Like "[0-9x][0-9x][0-9x][a-z]" Then
@@ -310,15 +323,19 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
          End If
          AddExclusion(sSubfield)
          DlgListBoxArray "ExcludeBox", aExcludeSubfields
-      Case "Delete"
-         sSelected = DlgText("ExcludeBox")
+      Case "Delete" 'remove exclusion
+         DialogFunc = True 
+         If DlgValue("ExcludeBox") = -1 Then
+            sSelected = ""
+         Else
+            sSelected = DlgText("ExcludeBox")
+         End If
          If sSelected <> "" Then 
             DeleteExclusion(sSelected)
             DlgListBoxArray "ExcludeBox", aExcludeSubfields
          Else
             MsgBox("No value selected")
          End If
-         DialogFunc = True 
       End Select
    Case 3 ' TextBox or ComboBox text changed
    Case 4 ' Focus changed
@@ -327,6 +344,10 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
       
    End Select
 End Function
+
+'**********************************************************************
+'The following three functions update the in-memory list of exlcusions 
+'**********************************************************************
 
 Sub SetExclusions(sExclusionList As String)
    iNextComma = InStr(1,sExclusionList,",")   
@@ -341,14 +362,13 @@ Sub SetExclusions(sExclusionList As String)
    End If
 End Sub
 
-Function AddExclusion(sSubfield as String)
+Sub AddExclusion(sSubfield as String) 
    sSubfield = ReplaceAll(sSubfield,"'","")
    Dim aCurrentExclusions()
    ReDim aCurrentExclusions(UBound(aExcludeSubfields$))
    For i = 0 to UBound(aExcludeSubfields$)
       If sSubfield = aExcludeSubfields(i) Then
-         MsgBox("Exlcusion already exists")
-         Exit Function
+         Exit Sub
       End If
       aCurrentExclusions(i) = aExcludeSubfields(i)
    Next i
@@ -358,9 +378,9 @@ Function AddExclusion(sSubfield as String)
       aExcludeSubfields(i) = aCurrentExclusions(i)
    Next i   
    aExcludeSubfields(UBound(aExcludeSubfields$)-1) = sSubfield
-End Function
+End Sub
 
-Function DeleteExclusion(sSubfield as String)
+Sub DeleteExclusion(sSubfield as String)
    Dim aCurrentExclusions()
    ReDim aCurrentExclusions(UBound(aExcludeSubfields$)-1)
    j  = 0
@@ -375,7 +395,11 @@ Function DeleteExclusion(sSubfield as String)
    For i = 0 to UBound(aCurrentExclusions)
       aExcludeSubfields(i) = aCurrentExclusions(i)
    Next i   
-End Function
+End Sub
+
+'*****************************************************************************
+'Extracts the value corresponding to a JSON field name in the provided string
+'*****************************************************************************
 
 Function GetJSONField(sJSON As String, sField As String) As String
    iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
@@ -388,12 +412,24 @@ Function GetJSONField(sJSON As String, sField As String) As String
          sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
       ElseIf sFirstChar = "[" Then
          sStr = Left(sStr,InStr(1,sStr,"]")-1)
+      ElseIf InStr(1,sStr,",") > 0 Then
+         sStr = sFirstChar & Left(sStr,InStr(1,sStr,",")-1)
+      ElseIf InStr(1,sStr,"}") > 0 Then
+         sStr = sFirstChar & Left(sStr,InStr(1,sStr,"}")-1)
+      Else
+         sStr = sFirstChar & sStr
       End If
       GetJSONField = sStr
    Else
       GetJSONField = ""
    End If
 End Function
+
+'**********************************************************************
+'These functions return the position and size of various 'cells' in the 
+'dialog 'grid' based on predefined global variables.  This simplifies
+'the parameters used in the design of the main dialog 
+'**********************************************************************
 
 Function Row(iPos As Integer) As Integer
    Row = MarginSize*iPos + RowHeight*(iPos-1)

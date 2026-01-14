@@ -5,12 +5,13 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 18 December 2025
-'Macro version: 0.3.2
+'Macro last modified: 08 January 2026
+'Macro version: 0.3.3
 
 Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""no_change"",""t_dir"":""s2r"",""options"":{}}"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sTransEndpoint = "trans"
+Global oHTTP as Object
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace as String) As String
@@ -18,6 +19,7 @@ Declare Function ConvertHTMLEntities(sStr As String) As String
 Declare Function ConvertUnicodeEntities(sStr As String) As String
 Declare Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
 Declare Function QueryScriptShifter(sReqJSON As String) As String
+Declare Function GetFieldByLine(CS As Object, iLineNo As Integer) As String
 
 Sub Main
    Dim CS As Object
@@ -31,13 +33,11 @@ Sub Main
    startSpace = ""
    endSpace = ""
    sTitle = "Convert Korean Names"
-   
-   Dim pinyin As Integer
 
-   CS.SendKeys "",-1
-   CS.SendKeys "^c",-1
+   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+   
+   'Capture location and length of selected text
    CS.CopySelected
-      
    iSelRow = CS.CursorRow
    iSelCol = CS.CursorColumn
    iSelLen = Len(Clipboard.GetText)
@@ -47,16 +47,9 @@ Sub Main
       Exit Sub
    End If   
 
+   sSelection = GetFieldByLine(CS,iSelRow)
 
-   'Insert BOM at beginning of field to force all Unicode to appear as numeric entities
-   CS.EndCell
-   CS.InsertText("&#xFEFF;")
-   
-   CS.GetFieldLineUnicode iSelRow,sSelection
-   CS.EndCell
-   CS.SendKeys "",-1 
-   CS.SendKeys "{BS}",-1
-
+   'Extract selected Unicode text using parameters captured earlier
    sSelection = GetUnicodeSubstring(sSelection,iSelCol,iSelLen)
 
    'If selection starts or ends with a space or period, strip it and add it back in later.
@@ -68,7 +61,13 @@ Sub Main
       endSpace = Right(sSelection,1) 
       sSelection = Left(sSelection,Len(sSelection)-1)
    End If
+
+   If Len(sSelection) = 0 Then
+      MsgBox "No text selected",0,sTitle
+      Exit Sub
+   End If
    
+   'Convert selected text using Korean names mode of SS
    sSelection = ReplaceAll(sSelection,Chr(34),"\" & Chr(34))
    sSelection = ConvertHTMLEntities(sSelection) 
 
@@ -77,7 +76,10 @@ Sub Main
    If sRomanName = "" Then
       Exit Sub
    End If
+
    sRomanName = ConvertUnicodeEntities(sRomanName)
+
+   'Convert the same text in 'no names' mode in order to know what to replace
    sReqJSON = ReplaceAll(sReqJSON,"korean_names", "korean_nonames")
    sRomanNormal = QueryScriptShifter(sReqJSON)
    sRomanNormal = ConvertUnicodeEntities(sRomanNormal)
@@ -86,27 +88,17 @@ Sub Main
       Exit Sub
    End If
    
-   nStart = CS.CursorColumn
-   nEnd = nStart + Len(sSelection)
    nLine = CS.CursorRow
    nNextLine = nLine + 1
-   'The parallel field must appear right above the Romanized field and have the same tag.
-   
-   If Len(sSelection) = 0 Then
-      MsgBox "No text selected",0,sTitle
-      Exit Sub
-   End If
-   
    
    Dim sCharField As string
    bSuccess = CS.GetFieldLineUnicode(nLine, sCharField)
    
-   Dim sRomanField As String
    CS.CursorRow = nNextLine
-   CS.CursorColumn = 999
-   CS.Paste   
-   
-   If CS.GetFieldLineUnicode(nNextLine, sRomanField) = False Then
+   sRomanField = GetFieldByLine(CS,nNextLine)
+
+   'The parallel field must appear right above the Romanized field and have the same tag.      
+   If sRomanField = "" Then
       MsgBox "No parallel field",0,sTitle
       Exit Sub
    End If
@@ -115,26 +107,17 @@ Sub Main
       Exit Sub
    End If
 
+   'Replace roman text in orignal conversion with re-converted text, output to record
    sRomanField = ReplaceAllNoCase(sRomanField,sRomanNormal,sRomanName)
-   For i = 1 to iSelLen
-      If Mid(sRomanField,Len(sRomanField),1) = ";" Then
-         If Len(sRomanField) > 8 And Mid(sRomanField,Len(sRomanField)-7,3) = "&#x" Then
-            sRomanField = Left(sRomanField,Len(sRomanField)-8)
-         Else
-            sRomanField = Left(sRomanField,Len(sRomanField)-1)
-         End If
-      Else
-         sRomanField = Left(sRomanField,Len(sRomanField)-1)
-      End If
-   Next i
-   
    CS.SetFieldLine nNextLine,sRomanField
    
 End Sub
 
+'******************************************************
+'Query ScriptShifter using provided JSON request string
+'******************************************************
+
 Function QueryScriptShifter(sReqJSON As String) As String
-   Dim oHTTP As Object
-   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
    oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
    oHTTP.SetRequestHeader "Content-Type", "application/json"
    oHTTP.Send(sReqJSON)
@@ -144,22 +127,20 @@ Function QueryScriptShifter(sReqJSON As String) As String
       QueryScriptShifter = ""
       Exit Function
    End If
-
    
    sResponse = oHTTP.ResponseText
    sResponse = ReplaceAll(sResponse,"{""output"":""","")
    sResponse = Left(sResponse,InStr(1,sResponse,""",""warnings")-1)
    sResponse = ReplaceAll(sResponse, Chr(10),"")
    sResponse = ReplaceAll(sResponse, "\" & Chr(34), Chr(34))
-   
-   'TEMPORARY: Convert Korean precomposed vowels to decomposed
-   sResponse = ReplaceAll(sResponse,"\u014e","O\u0306")      
-   sResponse = ReplaceAll(sResponse,"\u014f","o\u0306")   
-   sResponse = ReplaceAll(sResponse,"\u016c","U\u0306")   
-   sResponse = ReplaceAll(sResponse,"\u016d","u\u0306")   
-   
+      
    QueryScriptShifter = sResponse
 End Function
+
+'********************************************************************
+'Extract substring with given start position and length, but treating 
+'Unicode NCRs as single characters
+'********************************************************************
 
 Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
    iStrLen = Len(sStr)
@@ -187,6 +168,10 @@ Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integ
    GetUnicodeSubstring = sSubstring
 End Function
 
+'***************************************************************
+'Convert Unicode NCRs to JSON entities (e.g. &#x1234; -> \u1234) 
+'***************************************************************
+
 Function ConvertHTMLEntities(sStr As String) As String
    iPos = InStr(1,sStr,"&#x")
    While iPos > 0
@@ -195,6 +180,10 @@ Function ConvertHTMLEntities(sStr As String) As String
    Wend
    ConvertHTMLEntities = sStr
 End Function
+
+'***************************************************************
+'Convert JSON entities to Unicode NCRs (e.g. \u1234 -> &#x1234;) 
+'***************************************************************
 
 Function ConvertUnicodeEntities(sStr As String) As String
    iPos = InStr(1,sStr,"\u")
@@ -205,6 +194,9 @@ Function ConvertUnicodeEntities(sStr As String) As String
    ConvertUnicodeEntities = sStr
 End Function
 
+'*******************************************************
+'Replace all instances of a substring (case-insensitive)
+'*******************************************************
 
 Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace As String) As String
    place = 1
@@ -218,6 +210,11 @@ Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace As String) A
    ReplaceAllNoCase = sStr
 End Function
 
+
+'*******************************************************
+'Replace all instances of a substring (case-sensitive)
+'*******************************************************
+
 Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
    place = 1
    If InStr(place, sStr, sFind) Then
@@ -230,3 +227,23 @@ Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As Stri
    ReplaceAll = sStr
 End Function
 
+'***************************************************************************
+'Retrieve field at given line number.  Workaround for GetFieldLineUnicode bug
+'in which Unicode characters are not consistently represented as NCRs
+'***************************************************************************
+
+Function GetFieldByLine(CS As Object, iLineNo As Integer) As String
+   Dim sField As String
+
+   'Insert BOM at end of string to force Unicode to appear as NCR
+   CS.EndCell
+   CS.InsertText("&#xFEFF;")
+   bSuccess = CS.GetFieldLineUnicode(iLineNo,sField)
+   CS.EndCell
+   CS.SendKeys "",-1 
+   CS.SendKeys "{BS}",-1
+   If Not bSuccess Then
+      sField = ""
+   End If
+   GetFieldByLine = sField   
+End Function
