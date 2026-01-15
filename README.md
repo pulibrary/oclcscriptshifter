@@ -53,4 +53,4 @@ ScriptShifter has a special setting for Korean names. The 'Convert' macro is use
 
 ## Acknowledgments
 
-Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Flora Kim, Hyoungbae Lee, Michael Meerson, and Yang Wang, as well as Stefano Cossu, Jenna Moon, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
+Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Minyoung Chung, Flora Kim, Hyoungbae Lee, Michael Meerson, and Yang Wang, as well as Stefano Cossu, Jenna Moon, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
