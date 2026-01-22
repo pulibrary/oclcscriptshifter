@@ -3,18 +3,17 @@
 'Macro written by: Thomas Ventimiglia, Princeton University East Asian Library 
 'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 14 January 2026
-'Macro version: 0.3.3
+'Macro last modified: 22 January 2026
+'Macro version: 0.3.4
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
-Declare Function ValidateField(sStr As String) As String
 Declare Function GetHexCode(sStr As String)
 Declare Function ConvertHTMLEntities(sStr As String) As String
 Declare Function ConvertUnicodeEntities(sStr As String) As String
 Declare Function ConvertLatin1(sStr As String) As String
 Declare Function GetJSONField(sJSON As String, sField As String) As String
-Declare Function AdjustKorLangCode(sJSON As String, bIsName) As String
 Declare Sub GetLanguageList(ByRef aLangTable$())
 Declare Function IsRomanized(sString As String) As Integer
 Declare Function AddExclusion(sSubfield as String)
@@ -371,36 +370,9 @@ AppendResponse:
    End If  
 End Sub
 
-Function AdjustKorLangCode(sJSON As String, bIsName) As String
-   If bIsName = True Then
-      sJSON = ReplaceAll(sJSON,"korean_nonames","korean_names")
-   Else
-      sJSON = ReplaceAll(sJSON,"korean_names","korean_nonames")
-   End If
-   AdjustKorLangCode = sJSON
-End Function 
-
-Function ValidateField(sStr As String) As String
-   nLen = Len(sStr)
-   sResult = ""
-   pos = 1
-   For i = 6 to nLen
-      If Mid(sStr,i,8) Like "&[#]x[0-9A-F][0-9A-F][0-9A-F][0-9A-F];" Then
-         sNum = Mid(sStr,i,8)
-         nNum = GetHexCode(sNum)
-         i = i + 7
-      Else
-         nNum = Asc(Mid(sStr,i,1))
-         sNum = Val(nNum)        
-      End If
-      If Not((nNum > 0 And nNum < &H00FF&) Or nNum = &H0110& Or nNum = &H0111& Or nNum = &H0131& Or nNum = &H0141& Or nNum = &H0142& Or nNum = &H0152& Or nNum = &H0153& Or nNum = &H0300& Or nNum = &H0301& Or nNum = &H0302& Or nNum = &H0303& Or nNum = &H0304& Or nNum = &H0306& Or nNum = &H0307& Or nNum = &H0308& Or nNum = &H0309& Or nNum = &H0310& Or nNum = &H0313& Or nNum = &H0315& Or nNum = &H0323& Or nNum = &H0324& Or nNum = &H0325& Or nNum = &H0326& Or nNum = &H0327& Or nNum = &H0328& Or nNum = &H0332& Or nNum = &H0333& Or nNum = &H2113& Or nNum = &H2117& Or nNum = &H00A1& Or nNum = &H00A3& Or nNum = &H00A9& Or nNum = &H00AE& Or nNum = &H00B0& Or nNum = &H00B1& Or nNum = &H00B7& Or nNum = &H00BF& Or nNum = &H00C6& Or nNum = &H00D8& Or nNum = &H00DE& Or nNum = &H00DF& Or nNum = &H00F0& Or nNum = &H00F8& Or nNum = &H00FE& Or nNum = &H01A0& Or nNum = &H01A1& Or nNum = &H01AF& Or nNum = &H01B0& Or nNum = &H02B9& Or nNum = &H02BA& Or nNum = &H02BB& Or nNum = &H02BC& Or nNum = &H030A& Or nNum = &H030B& Or nNum = &H030C& Or nNum = &H031C& Or nNum = &H032E& Or nNum = &H266D& Or nNum = &H266F& Or nNum = &HFE20& Or nNum = &HFE21& Or nNum = &HFE22& Or nNum = &HFE23& Or nNum = &H01C2&) Then
-         sResult = sResult & "Invalid character in result at position " & pos
-         sResult = sResult & ": x" & Hex(nNum) & chr(10)
-      End If
-      pos = pos + 1
-   Next i
-   ValidateField = sResult
-End Function
+'*******************************************************
+'Replace all instances of a substring (case-sensitive)
+'*******************************************************
 
 Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
    place = 1
@@ -414,6 +386,10 @@ Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As Stri
    ReplaceAll = sStr
 End Function
 
+'***************************************************************************
+'Given a character in Unicode NCR, return the numeric value of the hex code
+'***************************************************************************
+
 Function GetHexCode(sChar As String) as Long
    sHex = Mid(sChar, 4, 4)
    nHex = Val("&H" & sHex & "&")
@@ -423,12 +399,20 @@ Function GetHexCode(sChar As String) as Long
    GetHexCode = nHex 
 End Function
 
+'**************************************************************************
+'Convert the Latin-1 characters in a string (0x80 to 0xFF) to Unicode NCRs
+'**************************************************************************
+
 Function ConvertLatin1(sStr As String) As String
    For i = 128 to 255
       sStr = ReplaceAll(sStr, Chr(i), "&#x00" & Hex(i) & ";")
    Next i
    ConvertLatin1 = sStr
 End Function
+
+'***************************************************************
+'Convert Unicode NCRs to JSON entities (e.g. &#x1234; -> \u1234) 
+'*************************************************************** 
 
 Function ConvertHTMLEntities(sStr As String) As String
    sConverted = sStr
@@ -440,6 +424,10 @@ Function ConvertHTMLEntities(sStr As String) As String
    ConvertHTMLEntities = sConverted
 End Function
 
+'***************************************************************
+'Convert JSON entities to Unicode NCRs (e.g. \u1234 -> &#x1234;) 
+'***************************************************************
+
 Function ConvertUnicodeEntities(sStr As String) As String
    iPos = InStr(1,sStr,"\u")
    While iPos > 0
@@ -448,6 +436,10 @@ Function ConvertUnicodeEntities(sStr As String) As String
    Wend
    ConvertUnicodeEntities = sStr
 End Function
+
+'*****************************************************************************
+'Extracts the value corresponding to a JSON field name in the provided string
+'*****************************************************************************
 
 Function GetJSONField(sJSON As String, sField As String) As String
    iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
@@ -460,6 +452,12 @@ Function GetJSONField(sJSON As String, sField As String) As String
          sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
       ElseIf sFirstChar = "[" Then
          sStr = Left(sStr,InStr(1,sStr,"]")-1)
+      ElseIf InStr(1,sStr,",") > 0 Then
+         sStr = sFirstChar & Left(sStr,InStr(1,sStr,",")-1)
+      ElseIf InStr(1,sStr,"}") > 0 Then
+         sStr = sFirstChar & Left(sStr,InStr(1,sStr,"}")-1)
+      Else
+         sStr = sFirstChar & sStr
       End If
       GetJSONField = sStr
    Else
@@ -467,15 +465,22 @@ Function GetJSONField(sJSON As String, sField As String) As String
    End If
 End Function
 
+'***************************************************************************************
+'Get a current version of the SS language list and populate the in-memory language table
+'***************************************************************************************
+
 Sub GetLanguageList(ByRef aLangTable$())
-   Dim oHTTP As Object
-   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
-   
    sURL = sScriptShifterURL & sLangEndpoint
    
    oHTTP.Open "GET", sURL, False
    oHTTP.SetRequestHeader "Content-Type", "application/json"
    oHTTP.Send
+   
+   If (oHTTP.Status <> "200") Then
+      MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
+      bSSerror = True
+      Exit Sub
+   End If
 
    sResponse = oHTTP.ResponseText
    
@@ -500,22 +505,10 @@ Sub GetLanguageList(ByRef aLangTable$())
       sDetails = Mid(sCurrentLang, InStr(1, sCurrentLang, "{"))
       sCurrentLang = Left(sCurrentLang, InStr(1,sCurrentLang, Chr(34))-1)
       
-      sLabel = sDetails
-      sLabel = Mid(sLabel,InStr(1,sLabel,"""label"":""")+9)
-      sLabel = Left(sLabel,InStr(1,sLabel,Chr(34))-1)
-      
-      sMARC = sDetails
-      sMARC = Mid(sMARC,InStr(1,sMARC,"""marc_code"":""")+13)
-      sMARC = Left(sMARC,InStr(1,sMARC,Chr(34))-1)
-
-
-      sStoR =  sDetails
-      sStoR = Mid(sStoR,InStr(sStoR,"""has_s2r"":")+10)
-      sStoR = Left(sStoR,InStr(sStoR,",")-1)
-     
-      sRtoS =  sDetails
-      sRtoS = Mid(sRtoS,InStr(sRtoS,"""has_r2s"":")+10)
-      sRtoS = Left(sRtoS,InStr(sRtoS,",")-1)
+      sLabel = GetJSONField(sDetails,"label")
+      sMARC = GetJSONField(sDetails,"marc_code")      
+      sStoR = GetJSONField(sDetails,"has_s2r")     
+      sRtoS = GetJSONField(sDetails,"has_r2s")
        
       sDirectionality = "both"
       If sStoR = "true" And sRtoS = "false" Then
@@ -523,7 +516,6 @@ Sub GetLanguageList(ByRef aLangTable$())
       ElseIf sStoR = "false" And sRtoS = "true" Then
          sDirectionality = "r2s"
       End If
-
       
       aLangList(iCount) = sLabel
       aLangTable(iCount,0) = sLabel
@@ -535,21 +527,30 @@ Sub GetLanguageList(ByRef aLangTable$())
    Loop While iNextPos > 0
 End Sub
 
+'***
+'Returns True if the input string only contains characters <= U+036F or 
+'between U+FE20 - U+FE2F (i.e. Latin characters, symbols, diacritics).
+'***
+
 Function IsRomanized(sString As String) As Integer
    IsRomanized = True
    iPos = 1
    While iPos > 0 
-      iPos = iPos + 1
       iPos = InStr(iPos,sString,"\u")
       If iPos > 0 Then
          sCode = Mid(sString,iPos+2,4)
          If (sCode >= "0370" And sCode <= "FE1F") Or (sCode >= "FE30") Then
             IsRomanized = False
+            Exit Function
          End If
-      End If  
+         iPos = iPos + 1
+      End If       
    Wend
 End Function
 
+'**********************************************************************
+'The following two functions update the in-memory list of exlcusions 
+'**********************************************************************
 
 Sub SetExclusions(sExclusionList As String)
    iNextComma = InStr(1,sExclusionList,",")   
@@ -570,7 +571,6 @@ Function AddExclusion(sSubfield as String)
    ReDim aCurrentExclusions(UBound(aExcludeSubfields$))
    For i = 0 to UBound(aExcludeSubfields$)
       If sSubfield = aExcludeSubfields(i) Then
-         MsgBox("Exlcusion already exists")
          Exit Function
       End If
       aCurrentExclusions(i) = aExcludeSubfields(i)
@@ -582,6 +582,10 @@ Function AddExclusion(sSubfield as String)
    Next i   
    aExcludeSubfields(UBound(aExcludeSubfields$)-1) = sSubfield
 End Function
+
+'************************************************
+'Check if a subfield is in the list of exclusions
+'************************************************
 
 Function IsExcluded(sSubfield As String) As Integer
    If Len(sSubfield) = 3 Then
@@ -602,6 +606,11 @@ Function IsExcluded(sSubfield As String) As Integer
    Next i
    IsExcluded = False
 End Function
+
+'********************************************************************
+'Extract substring with given start position and length, but treating 
+'Unicode NCRs as single characters
+'********************************************************************
 
 Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
    iStrLen = Len(sStr)
@@ -628,6 +637,11 @@ Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integ
    Next i
    GetUnicodeSubstring = sSubstring
 End Function
+
+'************************************************************************************
+'Retrieve the field where the cursor is located.  Workaround for GetFieldLineUnicode 
+'bug in which Unicode characters are not consistently represented as NCRs
+'*************************************************************************************
  
 Function GetCurrentField(CS As Object) As String
 
@@ -640,6 +654,10 @@ Function GetCurrentField(CS As Object) As String
    CS.SendKeys "",-1 
    CS.SendKeys "{BS}",-1
    
+   If Not bSuccess Then
+      sField = ""
+   End If
+   
    'Remove BOM
    sFieldX = ReplaceAll(sFieldX, "&#xFEFF;","")
    
@@ -647,6 +665,12 @@ Function GetCurrentField(CS As Object) As String
    sFieldY = Clipboard.GetText
       
    sFieldZ = ""
+   
+   'sFieldX: Version of field from GetFieldLineUnicode (in which characters between x80 and xFF may be wrongly encoded)
+   'sFieldY: Version of field from clipboard (in which Unicode characters appear as ?)
+   'Although these two versions of the field both have problems, they can be merged to produce a valid string.
+   'The following loop iterates through the strings and picks the valid characters from each one.
+   '(sFieldX if the character is a Unicode NCR, or sFieldY if the character differs from sFieldX and is not ?)
    
    y = 1
    For x = 1 to Len(sFieldX)
