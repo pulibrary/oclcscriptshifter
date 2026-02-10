@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 03 February 2026
-'Macro version: 0.3.6
+'Macro last modified: 10 February 2026
+'Macro version: 0.3.7
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function GetHexCode(sStr As String)
@@ -104,12 +104,11 @@ Convert:
    If iSelLen > 0 Then
       bExcludeSelection = True
       sExcludedText = GetUnicodeSubstring(sField,iSelCol,iSelLen)
-      iExcludeStart = Len(GetUnicodeSubstring(sField,1,iSelCol))
-      iExcludeEnd = iExcludeStart + Len(sExcludedText)      
+      iExcludeStart = Len(GetUnicodeSubstring(sField,1,iSelCol-1))
+      iExcludeEnd = iExcludeStart + Len(sExcludedText)    
       sExcludedText = ReplaceAll(sExcludedText,sDelimiterChar,sDelimiterHTML)
    End If
-
-
+   
    'Select SS language based on config-file (or Lang fixed field if auto-selection is enabled)
    sLangName = ""
    sLangCode = ""
@@ -148,7 +147,7 @@ Convert:
       If(bExcludeSelection And iFieldPos < iExcludeEnd And _ 
          (iDelimPos >= iExcludeStart Or iDelimPos = 0)) Then
          bInExclusion = True
-         iDelimPos = iExcludeStart
+         iDelimPos = iExcludeStart + 1
       End If
 
       If iDelimPos > 0 Then
@@ -156,7 +155,7 @@ Convert:
       Else
         sCurrentSubfield = Mid(sField,iFieldPos,Len(sField)-iFieldPos+1) 
       End If
-
+      
       iFieldPos = iFieldPos + Len(sCurrentSubfield)
            
       sSubfieldTag = ""
@@ -329,7 +328,7 @@ AppendResponse:
       If(bInExclusion) Then
          bInExclusion = False
          sConvertedFields = sConvertedFields & sExcludedText
-         iFieldPos = iExcludeEnd
+         iFieldPos = iExcludeEnd + 1
       End If
 
    Loop While iDelimPos > 0 And iFieldPos <= Len(sField)
