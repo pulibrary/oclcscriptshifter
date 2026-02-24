@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 22 January 2026
-'Macro version: 0.3.7
+'Macro last modified: 26 January 2026
+'Macro version: 0.3.8
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
@@ -20,7 +20,7 @@ Declare Sub AddExclusion(sSubfield as String)
 Declare Sub DeleteExclusion(sSubfield as String)
 Declare Sub SetExclusions(sExclusionList As String)
 
-Global Const sVersion = "v0.3.7"
+Global Const sVersion = "v0.3.8"
 Global Const RowHeight = 20
 Global Const ColumnWidth = 50   
 Global Const MarginSize = 10
@@ -97,7 +97,7 @@ LoadData:
       
    'Select SS language based on config file, or Lang fixed field if auto-selection is enabled
    'If SS defines multiple languages for a MARC language code, select the shortest 
-   '(Assumes this is a reasonable "default", but has exceptions for Chinese and Korean)
+   '(Assumes this is a reasonable "default", but has an exception for Korean)
    If sCfgAutoSelect = "false" Then
       For i = 0 to UBound(aLangTable$)
          If sCfgLang = aLangTable$(i,1) Then
@@ -110,8 +110,7 @@ LoadData:
       For i = 0 to UBound(aLangTable$)
          If (InStr(1,aLangTable$(i,2),sLangMARC) > 0) And _ 
             (Len(aLangTable$(i,2)) < sLangLength) And _ 
-            (aLangTable$(i,1) <> "korean_names") And _ 
-            (aLangTable$(i,1) <> "chiense") Then
+            (aLangTable$(i,1) <> "korean_names") Then
             
             sLangLength = Len(aLangTable$(i,2))
             sLangCode = aLangTable$(i,1)
