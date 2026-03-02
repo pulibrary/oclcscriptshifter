@@ -1,4 +1,4 @@
-# ScriptShifter Macro for OCLC Connexion
+# ScriptShifter Macro for OCLC Connexion Client
 
 This OCLC Connexion macro uses the Library of Congress "ScriptShifter" service (https://bibframe.org/scriptshifter) to convert between scripts and create parallel fields in WorldCat records.  The installer can be downloaded here: 
 
