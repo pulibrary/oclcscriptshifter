@@ -53,7 +53,7 @@ ScriptShifter has a special setting for Korean names. The 'Convert' macro is use
 
 Chinese pinyin text found in 100a, 600a, 700a, and 800a will be formatted as a personal name (e.g. "Wen, Daoming").  To format text in other fields as personal or proper names, see the <a href="https://github.com/pulibrary/oclcpinyin?tab=readme-ov-file#extra-macros-for-manual-adjustments">PinyinExtras</a> macro book.  These macros should be run after "ScriptShifter!Convert".  
 
-By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二十三" --> "yi bai er shi san", but the "ConvertNumbers" macro in "PinyinExtras" can be run afterwards to convert the pinyin numbers to Arabic numerals, if desired (e.g. "yi bai er shi san" --> "123").
+By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二十三" --> "yi bai er shi san"), but the "ConvertNumbers" macro in "PinyinExtras" can be run afterwards to convert the pinyin numbers to Arabic numerals, if desired (e.g. "yi bai er shi san" --> "123").
 
 ## Known issues
 - If the field being converted is a controlled heading, it will be temporarily uncontrolled while the conversion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
