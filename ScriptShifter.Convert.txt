@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 24 February 2026
-'Macro version: 0.3.8
+'Macro last modified: 09 March 2026
+'Macro version: 0.3.9
 
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
 Declare Function GetHexCode(sStr As String)
@@ -214,6 +214,12 @@ Convert:
             sJSON = ReplaceAll(sJSON,"korean_names","korean_nonames")
          End If
          sLangName = "Korean"
+      End If
+
+      'Chinese: Set MARC code parameter for names
+      If (bIsName And sLangCode = "chinese") Then
+         sJSON = ReplaceAll(sJSON, Chr(34) & "options" & Chr(34) & ":{}",Chr(34) & "options" & _ 
+               Chr(34) & ":{" & Chr(34) & "marc_field" & Chr(34) & ":" & Chr(34) & "100" & Chr(34) & "}")
       End If
       
       'Hebrew: Default to 'modern' genre
