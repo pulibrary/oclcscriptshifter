@@ -5,21 +5,12 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 03 February 2026
-'Macro version: 0.3.9
+'Macro last modified: 30 March 2026
+'Macro version: 0.4.0
+
+'$Include: "ScriptShifter!UtilityFunctions"
 
 Global Const sDefaultJSON = "{""lang"":""korean_names"",""capitalize"":""no_change"",""t_dir"":""s2r"",""options"":{}}"
-Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
-Global Const sTransEndpoint = "trans"
-Global oHTTP as Object
-
-Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
-Declare Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace as String) As String
-Declare Function ConvertHTMLEntities(sStr As String) As String
-Declare Function ConvertUnicodeEntities(sStr As String) As String
-Declare Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
-Declare Function QueryScriptShifter(sReqJSON As String) As String
-Declare Function GetFieldByLine(CS As Object, iLineNo As Integer) As String
 
 Sub Main
    Dim CS As Object
@@ -29,12 +20,16 @@ Sub Main
    If CS  Is Nothing Then
       Set CS  = CreateObject("Connex.Client")
    End If
+
+   If GetRecordType(CS) <> "BIB" Then
+      MsgBox("This macro can only be run on bibliographic records.")
+      Exit Sub
+   End If
+
    sSelection = ""
    startSpace = ""
    endSpace = ""
    sTitle = "Convert Korean Names"
-
-   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
    
    'Capture location and length of selected text
    CS.CopySelected
@@ -68,11 +63,15 @@ Sub Main
    End If
    
    'Convert selected text using Korean names mode of SS
-   sSelection = ReplaceAll(sSelection,Chr(34),"\" & Chr(34))
+   sSelection = ReplaceAll(sSelection,Chr(34),"\" & Chr(34),True)
    sSelection = ConvertHTMLEntities(sSelection) 
 
-   sReqJSON = ReplaceAll(sDefaultJSON, "{""lang","{""text"":""" & sSelection & """,""lang")
+   sReqJSON = ReplaceAll(sDefaultJSON, "{""lang","{""text"":""" & sSelection & """,""lang",True)
    sRomanName = QueryScriptShifter(sReqJSON)
+   If InStr(1,sRomanName,"**ERROR") = 1 Then
+      MsgBox sConnectionError
+      Exit Sub
+   End If
    If sRomanName = "" Then
       Exit Sub
    End If
@@ -80,7 +79,7 @@ Sub Main
    sRomanName = ConvertUnicodeEntities(sRomanName)
 
    'Convert the same text in 'no names' mode in order to know what to replace
-   sReqJSON = ReplaceAll(sReqJSON,"korean_names", "korean_nonames")
+   sReqJSON = ReplaceAll(sReqJSON,"korean_names", "korean_nonames",True)
    sRomanNormal = QueryScriptShifter(sReqJSON)
    sRomanNormal = ConvertUnicodeEntities(sRomanNormal)
 
@@ -108,142 +107,7 @@ Sub Main
    End If
 
    'Replace roman text in orignal conversion with re-converted text, output to record
-   sRomanField = ReplaceAllNoCase(sRomanField,sRomanNormal,sRomanName)
+   sRomanField = ReplaceAll(sRomanField,sRomanNormal,sRomanName,False)
    CS.SetFieldLine nNextLine,sRomanField
    
 End Sub
-
-'******************************************************
-'Query ScriptShifter using provided JSON request string
-'******************************************************
-
-Function QueryScriptShifter(sReqJSON As String) As String
-   oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
-   oHTTP.SetRequestHeader "Content-Type", "application/json"
-   oHTTP.Send(sReqJSON)
-   
-   If (oHTTP.Status <> "200") Then
-      MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
-      QueryScriptShifter = ""
-      Exit Function
-   End If
-   
-   sResponse = oHTTP.ResponseText
-   sResponse = ReplaceAll(sResponse,"{""output"":""","")
-   sResponse = Left(sResponse,InStr(1,sResponse,""",""warnings")-1)
-   sResponse = ReplaceAll(sResponse, Chr(10),"")
-   sResponse = ReplaceAll(sResponse, "\" & Chr(34), Chr(34))
-      
-   QueryScriptShifter = sResponse
-End Function
-
-'********************************************************************
-'Extract substring with given start position and length, but treating 
-'Unicode NCRs as single characters
-'********************************************************************
-
-Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
-   iStrLen = Len(sStr)
-   iActualPos = 1
-   iActualLen = 0
-   sSubstring = ""
-   sChar = ""
-   bInEntity = False
-   For i = 1 to iStrLen
-      If Mid(sStr,i,3) = "&#x" Then
-         bInEntity = True
-      ElseIf Mid(sStr,i,1) = ";" Then
-         bInEntity = False
-      End If
-      If iActualPos >= iStart And iActualLen < iLength Then
-         sSubstring = sSubstring & Mid(sStr,i,1)
-         If Not bInEntity Then
-            iActualLen = iActualLen + 1
-         End If
-      End If
-      If Not bInEntity Then
-         iActualPos = iActualPos + 1
-      End If
-   Next i
-   GetUnicodeSubstring = sSubstring
-End Function
-
-'***************************************************************
-'Convert Unicode NCRs to JSON entities (e.g. &#x1234; -> \u1234) 
-'***************************************************************
-
-Function ConvertHTMLEntities(sStr As String) As String
-   iPos = InStr(1,sStr,"&#x")
-   While iPos > 0
-      sStr = Left(sStr,iPos-1) & "\u" & Mid(sStr,iPos+3,4) & Mid(sStr,iPos+8)   
-      iPos = InStr(1,sStr,"&#x") 
-   Wend
-   ConvertHTMLEntities = sStr
-End Function
-
-'***************************************************************
-'Convert JSON entities to Unicode NCRs (e.g. \u1234 -> &#x1234;) 
-'***************************************************************
-
-Function ConvertUnicodeEntities(sStr As String) As String
-   iPos = InStr(1,sStr,"\u")
-   While iPos > 0
-      sStr = Left(sStr,iPos-1) & "&#x" & UCase(Mid(sStr,iPos+2,4)) & ";" & Mid(sStr,iPos+6)  
-      iPos = InStr(1,sStr,"\u") 
-   Wend
-   ConvertUnicodeEntities = sStr
-End Function
-
-'*******************************************************
-'Replace all instances of a substring (case-insensitive)
-'*******************************************************
-
-Function ReplaceAllNoCase(sStr As String, sFind As String, sReplace As String) As String
-   place = 1
-   If InStr(place, LCase(sStr), LCase(sFind)) Then
-      Do While InStr(place, LCase(sStr), LCase(sFind))
-          place = InStr(place, LCase(sStr), LCase(sFind))
-          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
-          place = place + Len(sReplace)
-      Loop
-   End If
-   ReplaceAllNoCase = sStr
-End Function
-
-
-'*******************************************************
-'Replace all instances of a substring (case-sensitive)
-'*******************************************************
-
-Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
-   place = 1
-   If InStr(place, sStr, sFind) Then
-      Do While InStr(place, sStr, sFind)
-          place = InStr(place, sStr, sFind)
-          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
-          place = place + Len(sReplace)
-      Loop
-   End If
-   ReplaceAll = sStr
-End Function
-
-'***************************************************************************
-'Retrieve field at given line number.  Workaround for GetFieldLineUnicode bug
-'in which Unicode characters are not consistently represented as NCRs
-'***************************************************************************
-
-Function GetFieldByLine(CS As Object, iLineNo As Integer) As String
-   Dim sField As String
-
-   'Insert BOM at end of string to force Unicode to appear as NCR
-   CS.EndCell
-   CS.InsertText("&#xFEFF;")
-   bSuccess = CS.GetFieldLineUnicode(iLineNo,sField)
-   CS.EndCell
-   CS.Backspace
-   If Not bSuccess Then
-      sField = ""
-   End If
-   sField = ReplaceAll(sField, "&#xFEFF;","")
-   GetFieldByLine = sField   
-End Function

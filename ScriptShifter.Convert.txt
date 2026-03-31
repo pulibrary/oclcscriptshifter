@@ -5,29 +5,10 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 09 March 2026
-'Macro version: 0.3.9
+'Macro last modified: 30 March 2026
+'Macro version: 0.4.0
 
-Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
-Declare Function GetHexCode(sStr As String)
-Declare Function ConvertHTMLEntities(sStr As String) As String
-Declare Function ConvertUnicodeEntities(sStr As String) As String
-Declare Function ConvertLatin1(sStr As String) As String
-Declare Function GetJSONField(sJSON As String, sField As String) As String
-Declare Sub GetLanguageList(ByRef aLangTable$())
-Declare Function IsRomanized(sString As String) As Integer
-Declare Function AddExclusion(sSubfield as String)
-Declare Sub SetExclusions(sExclusionList As String)
-Declare Function IsExcluded(sSubfield As String) As Integer
-Declare Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
-Declare Function GetCurrentField(CS As Object) As String
-
-Global Const sSettingsFilename = "ScriptShifter.Settings.json"
-Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
-Global Const sLangEndpoint = "languages"
-Global Const sTransEndpoint = "trans"
-Global aExcludeSubfields$()
-Global oHTTP As Object
+'$Include: "ScriptShifter!UtilityFunctions"
 
 Sub Main
    Dim CS As Object
@@ -36,7 +17,11 @@ Sub Main
    On Error GoTo 0
    If CS Is Nothing Then Set CS = CreateObject( "Connex.Client" )
 
-   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+   If GetRecordType(CS) <> "BIB" Then
+      MsgBox("This macro can only be run on bibliographic records.")
+      Exit Sub
+   End If
+
 
    Clipboard.Clear
 
@@ -48,27 +33,12 @@ Sub Main
    iSelLen = Len(sExcludedText)
 
    'Load Settings file, or launch settings macro if none exists
-   ChDir Environ("AppData") & "\OCLC\Connex\Macros"
-   On Error GoTo MakeFile
-ReadJSON:
-   sJSON = ""
-   Open sSettingsFilename For Input As #1
-   While Not EOF(1)
-      sChar = Input$(1,#1)
-      sJSON = sJSON & sChar
-   Wend
-   sCfgLang = GetJSONField(sJSON,"lang")
-   sCfgCapitalization = GetJSONField(sJSON, "capitalize")
-   sCfgDirection = GetJSONField(sJSON, "t_dir")
-   sCfgAutoSelect = GetJSONField(sJSON, "autoselect")
-   sCfgExclusions = GetJSONField(sJSON, "exclude")
-   Close #1
-   On Error Resume Next
-   Goto Convert
-MakeFile:
-   CS.RunMacro("ScriptShifter!Settings")
-   Goto ReadJSON:
-Convert:
+LoadSettings:
+   sJSON = LoadSettings()
+   If sJSON = "**ERROR_READFILE**" Then
+      CS.RunMacro("ScriptShifter!Settings")
+      Goto LoadSettings:
+   End If
 
    ReDim aExcludeSubfields$(0)
    SetExclusions(sCfgExclusions)   
@@ -83,15 +53,15 @@ Convert:
       CS.UncontrolHeading
    End If
       
-   sField = GetCurrentField(CS)
+   sField = GetFieldByLine(CS,iSelRow)
          
    'Replace EOP character in indicator fields with period
-   sField = ReplaceAll(sField, "&#x220E;",".")
+   sField = ReplaceAll(sField, "&#x220E;",".",True)
   
    sOriginalField = sField
 
    'Convert subfield Delimiter to ASCII 1F
-   sField = ReplaceAll(sField, sDelimiterHTML,sDelimiterChar)
+   sField = ReplaceAll(sField, sDelimiterHTML,sDelimiterChar,True)
    
    'Pull the tag name and indicators
    sConvertedFields = Left(sField, 5)
@@ -106,7 +76,7 @@ Convert:
       sExcludedText = GetUnicodeSubstring(sField,iSelCol,iSelLen)
       iExcludeStart = Len(GetUnicodeSubstring(sField,1,iSelCol-1))
       iExcludeEnd = iExcludeStart + Len(sExcludedText)    
-      sExcludedText = ReplaceAll(sExcludedText,sDelimiterChar,sDelimiterHTML)
+      sExcludedText = ReplaceAll(sExcludedText,sDelimiterChar,sDelimiterHTML,True)
    End If
    
    'Select SS language based on config-file (or Lang fixed field if auto-selection is enabled)
@@ -114,8 +84,11 @@ Convert:
    sLangCode = ""
    sDirectionality = ""
    
-   Dim aLangTable$()
-   Call GetLanguageList(aLangTable$)
+   sLLResult = GetLanguageList
+   If sLLResult = "**ERROR_CONNECT*" Then
+      MsgBox sConnectionError
+      Exit Sub
+   End If
    
    If sCfgAutoSelect = "true" Then
       sLangMARC = ""
@@ -131,7 +104,12 @@ Convert:
       Next i   
    End if
    If sLangCode <> "" Then
-      sJSON = ReplaceAll(sJSON,sCfgLang,sLangCode)
+      sJSON = ReplaceAll(sJSON,sCfgLang,sLangCode,True)
+   ElseIf sCfgAutoSelect = "true" Then
+      MsgBox("Language code '" & sLangMARC &"' does not correspond to a script supported by ScriptShifter. " & _
+         "Please update the 'Lang' fixed field, or run 'ScriptShifter!Settings' to turn of auto-selection " & _
+         "and manually set the conversion language/script.")
+         Exit Sub
    End If
 
    If sDirectionality = "" Then
@@ -196,11 +174,12 @@ Convert:
          GoTo AppendResponse            
       End If   
  
-      sCurrentSubfield = ReplaceAll(sCurrentSubfield,Chr(34),"\" & Chr(34))
+      sCurrentSubfield = ReplaceAll(sCurrentSubfield,Chr(34),"\" & Chr(34),True)
       sCurrentSubfield = ConvertHTMLEntities(sCurrentSubfield) 
      
       bIsName = False
-      If (sTag = "100" Or sTag = "600" Or sTag = "700" or sTag = "800") And (sSubfieldTag = "a" Or sSubfieldTag = "") Then
+      If (sTag = "100" Or sTag = "600" Or sTag = "700" or sTag = "800") And _ 
+          (sSubfieldTag = "a" Or sSubfieldTag = "") Then
             bIsName = True
       End If
       
@@ -209,9 +188,9 @@ Convert:
       'Korean: Select correct language based on whether field is a 'name' field (100a, etc.)
       If InStr(1,sJSON,"korean") Then
          If bIsName = True Then
-            sJSON = ReplaceAll(sJSON,"korean_nonames","korean_names")
+            sJSON = ReplaceAll(sJSON,"korean_nonames","korean_names",True)
          Else
-            sJSON = ReplaceAll(sJSON,"korean_names","korean_nonames")
+            sJSON = ReplaceAll(sJSON,"korean_names","korean_nonames",True)
          End If
          sLangName = "Korean"
       End If
@@ -219,25 +198,25 @@ Convert:
       'Chinese: Set MARC code parameter for names
       If (bIsName And sLangCode = "chinese") Then
          sJSON = ReplaceAll(sJSON, Chr(34) & "options" & Chr(34) & ":{}",Chr(34) & "options" & _ 
-               Chr(34) & ":{" & Chr(34) & "marc_field" & Chr(34) & ":" & Chr(34) & "100" & Chr(34) & "}")
+               Chr(34) & ":{" & Chr(34) & "marc_field" & Chr(34) & ":" & Chr(34) & "100" & Chr(34) & "}",True)
       End If
       
       'Hebrew: Default to 'modern' genre
       If (sLangCode = "hebrew") Then
          sJSON = ReplaceAll(sJSON, Chr(34) & "options" & Chr(34) & ":{}",Chr(34) & "options" & _ 
-               Chr(34) & ":{" & Chr(34) & "genre" & Chr(34) & ":" & Chr(34) & "modern" & Chr(34) & "}")
+               Chr(34) & ":{" & Chr(34) & "genre" & Chr(34) & ":" & Chr(34) & "modern" & Chr(34) & "}",True)
       End If    
    
       Dim sReqJSON As String
       sReqJSON = sJSON
-      sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & sCurrentSubfield & """,""lang")
+      sReqJSON = ReplaceAll(sReqJSON, "{""lang","{""text"":""" & sCurrentSubfield & """,""lang",True)
 
       'auto-detect roman vs non-roman
       If InStr(1,sReqJSON,Chr(34) & "t_dir" & Chr(34) & ":" & Chr(34) & "auto") > 0 Then 
          If bFieldHasNonRoman Then
-            sReqJSON = ReplaceAll(sReqJSON,Chr(34) & "auto" & Chr(34),Chr(34) & "r2s" & Chr(34))
+            sReqJSON = ReplaceAll(sReqJSON,Chr(34) & "auto" & Chr(34),Chr(34) & "r2s" & Chr(34),True)
          Else
-            sReqJSON = ReplaceAll(sReqJSON,Chr(34) & "auto" & Chr(34),Chr(34) & "s2r" & Chr(34))
+            sReqJSON = ReplaceAll(sReqJSON,Chr(34) & "auto" & Chr(34),Chr(34) & "s2r" & Chr(34),True)
          End If
       End If
       
@@ -277,28 +256,19 @@ Convert:
          iExclusionEnd = InStr(iExclusionPos, sReqJSON, "],")
          sReqJSON = Left(sReqJSON,iExclusionPos-1) & Mid(sReqJSON, iExclusionEnd+2)
       End If
-
-      oHTTP.Open "POST", sScriptShifterURL & sTransEndpoint, False
-      oHTTP.SetRequestHeader "Content-Type", "application/json"
       
-      oHTTP.Send(sReqJSON)
+      sResponse = QueryScriptShifter(sReqJSON)
       
-      If (oHTTP.Status <> "200" And oHTTP.Status <> "500") Then
-         MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
+      If sResponse = "**ERROR_CONNECT**" Then
+         MsgBox sConnectionError
          Exit Sub
       End If
 
-      If oHTTP.Status = "500" Then
+      If sResponse = "**ERROR_CONVERT**" Then
          bSSError = True
          sResponse = sCurrentSubfield
          GoTo AppendResponse
       End If         
-
-      sResponse = oHTTP.ResponseText
-      sResponse = ReplaceAll(sResponse,"{""output"":""","")
-      sResponse = Left(sResponse,InStr(1,sResponse,""",""warnings")-1)
-      sResponse = ReplaceAll(sResponse, Chr(10),"")
-      sResponse = ReplaceAll(sResponse, "\" & Chr(34), Chr(34))
    
       If Trim(LCase(sResponse)) = Trim(LCase(sCurrentSubfield)) Then
          sResponse = sCurrentSubfield
@@ -319,8 +289,8 @@ AppendResponse:
       
       'Greek (remove stress marks, convert "O" to "Ho"
       If InStr(1, sReqJSON, "lang"":""greek") > 0 And sConvDirection = "s2r" Then
-         sResponse = ReplaceAll(sResponse, "O ","Ho ")
-         sResponse = ReplaceAll(sResponse,"&#x0301;","")
+         sResponse = ReplaceAll(sResponse, "O ","Ho ",True)
+         sResponse = ReplaceAll(sResponse,"&#x0301;","",True)
       End If
 
 
@@ -374,319 +344,3 @@ AppendResponse:
    End If  
 End Sub
 
-'*******************************************************
-'Replace all instances of a substring (case-sensitive)
-'*******************************************************
-
-Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
-   place = 1
-   If InStr(place, sStr, sFind) Then
-      Do While InStr(place, sStr, sFind)
-          place = InStr(place, sStr, sFind)
-          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
-          place = place + Len(sReplace)
-      Loop
-   End If
-   ReplaceAll = sStr
-End Function
-
-'***************************************************************************
-'Given a character in Unicode NCR, return the numeric value of the hex code
-'***************************************************************************
-
-Function GetHexCode(sChar As String) as Long
-   sHex = Mid(sChar, 4, 4)
-   nHex = Val("&H" & sHex & "&")
-   If nHex < 0 Then
-      nHex = nHex + &HFFFF& + 1
-   End If
-   GetHexCode = nHex 
-End Function
-
-'**************************************************************************
-'Convert the Latin-1 characters in a string (0x80 to 0xFF) to Unicode NCRs
-'**************************************************************************
-
-Function ConvertLatin1(sStr As String) As String
-   For i = 128 to 255
-      sStr = ReplaceAll(sStr, Chr(i), "&#x00" & Hex(i) & ";")
-   Next i
-   ConvertLatin1 = sStr
-End Function
-
-'***************************************************************
-'Convert Unicode NCRs to JSON entities (e.g. &#x1234; -> \u1234) 
-'*************************************************************** 
-
-Function ConvertHTMLEntities(sStr As String) As String
-   sConverted = sStr
-   iPos = InStr(1,sConverted,"&#x")
-   While iPos > 0
-      sConverted = Left(sConverted,iPos-1) & "\u" & Mid(sConverted,iPos+3,4) & Mid(sConverted,iPos+8)   
-      iPos = InStr(1,sConverted,"&#x") 
-   Wend
-   ConvertHTMLEntities = sConverted
-End Function
-
-'***************************************************************
-'Convert JSON entities to Unicode NCRs (e.g. \u1234 -> &#x1234;) 
-'***************************************************************
-
-Function ConvertUnicodeEntities(sStr As String) As String
-   iPos = InStr(1,sStr,"\u")
-   While iPos > 0
-      sStr = Left(sStr,iPos-1) & "&#x" & UCase(Mid(sStr,iPos+2,4)) & ";" & Mid(sStr,iPos+6)  
-      iPos = InStr(1,sStr,"\u") 
-   Wend
-   ConvertUnicodeEntities = sStr
-End Function
-
-'*****************************************************************************
-'Extracts the value corresponding to a JSON field name in the provided string
-'*****************************************************************************
-
-Function GetJSONField(sJSON As String, sField As String) As String
-   iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
-   sStr = sJSON
-   If iLoc > 0 Then
-      sStr = Mid(sStr,iLoc+Len(sField)+3)
-      sFirstChar = Left(sStr,1)
-      sStr = Mid(sStr,2)
-      If sFirstChar = Chr(34) Then
-         sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
-      ElseIf sFirstChar = "[" Then
-         sStr = Left(sStr,InStr(1,sStr,"]")-1)
-      ElseIf InStr(1,sStr,",") > 0 Then
-         sStr = sFirstChar & Left(sStr,InStr(1,sStr,",")-1)
-      ElseIf InStr(1,sStr,"}") > 0 Then
-         sStr = sFirstChar & Left(sStr,InStr(1,sStr,"}")-1)
-      Else
-         sStr = sFirstChar & sStr
-      End If
-      GetJSONField = sStr
-   Else
-      GetJSONField = ""
-   End If
-End Function
-
-'***************************************************************************************
-'Get a current version of the SS language list and populate the in-memory language table
-'***************************************************************************************
-
-Sub GetLanguageList(ByRef aLangTable$())
-   sURL = sScriptShifterURL & sLangEndpoint
-   
-   oHTTP.Open "GET", sURL, False
-   oHTTP.SetRequestHeader "Content-Type", "application/json"
-   oHTTP.Send
-   
-   If (oHTTP.Status <> "200") Then
-      MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
-      bSSerror = True
-      Exit Sub
-   End If
-
-   sResponse = oHTTP.ResponseText
-   
-   iNextPos = InStr(1,sResponse,"},")
-   iCount = 0
-   While iNextPos > 0 
-      iCount = iCount+1
-      iNextPos = InStr(iNextPos+1,sResponse,"},")
-   Wend
-   
-   ReDim aLangList(iCount)
-   ReDim aLangTable(iCount,4)
-   
-   iCount = 0
-   Do 
-      sCurrentLang = sResponse
-      If iNextPos > 0 Then
-         sCurrentLang = Left(sResponse,iNextPos)
-         sResponse = Mid(sResponse,iNextPos+1)
-      End If
-      sCurrentLang = Mid(sCurrentLang, InStr(1,sCurrentLang,Chr(34))+1)
-      sDetails = Mid(sCurrentLang, InStr(1, sCurrentLang, "{"))
-      sCurrentLang = Left(sCurrentLang, InStr(1,sCurrentLang, Chr(34))-1)
-      
-      sLabel = GetJSONField(sDetails,"label")
-      sMARC = GetJSONField(sDetails,"marc_code")      
-      sStoR = GetJSONField(sDetails,"has_s2r")     
-      sRtoS = GetJSONField(sDetails,"has_r2s")
-       
-      sDirectionality = "both"
-      If sStoR = "true" And sRtoS = "false" Then
-         sDirectionality = "s2r"
-      ElseIf sStoR = "false" And sRtoS = "true" Then
-         sDirectionality = "r2s"
-      End If
-      
-      aLangList(iCount) = sLabel
-      aLangTable(iCount,0) = sLabel
-      aLangTable(iCount,1) = sCurrentLang
-      aLangTable(iCount,2) = sMARC
-      aLangTable(iCount,3) = sDirectionality
-      iCount = iCount + 1
-      iNextPos = InStr(1,sResponse,"},")
-   Loop While iNextPos > 0
-End Sub
-
-'***
-'Returns True if the input string only contains characters <= U+036F or 
-'between U+FE20 - U+FE2F (i.e. Latin characters, symbols, diacritics).
-'***
-
-Function IsRomanized(sString As String) As Integer
-   IsRomanized = True
-   iPos = 1
-   While iPos > 0 
-      iPos = InStr(iPos,sString,"\u")
-      If iPos > 0 Then
-         sCode = Mid(sString,iPos+2,4)
-         If (sCode >= "0370" And sCode <= "FE1F") Or (sCode >= "FE30") Then
-            IsRomanized = False
-            Exit Function
-         End If
-         iPos = iPos + 1
-      End If       
-   Wend
-End Function
-
-'**********************************************************************
-'The following two functions update the in-memory list of exlcusions 
-'**********************************************************************
-
-Sub SetExclusions(sExclusionList As String)
-   iNextComma = InStr(1,sExclusionList,",")   
-   While iNextComma > 0  
-      sNextExclusion = Left(sExclusionList,iNextComma-1)      
-      AddExclusion(sNextExclusion)
-      sExclusionList = Mid(sExclusionList,iNextComma+1)
-      iNextComma = InStr(1,sExclusionList,",")  
-   Wend
-   If sExclusionList <> "" Then
-      AddExclusion(sExclusionList)
-   End If
-End Sub
-
-Function AddExclusion(sSubfield as String)
-   sSubfield = ReplaceAll(sSubfield,"'","")
-   Dim aCurrentExclusions()
-   ReDim aCurrentExclusions(UBound(aExcludeSubfields$))
-   For i = 0 to UBound(aExcludeSubfields$)
-      If sSubfield = aExcludeSubfields(i) Then
-         Exit Function
-      End If
-      aCurrentExclusions(i) = aExcludeSubfields(i)
-   Next i
-   
-   ReDim aExcludeSubfields(UBound(aExcludeSubfields$)+1)
-   For i = 0 to UBound(aCurrentExclusions)
-      aExcludeSubfields(i) = aCurrentExclusions(i)
-   Next i   
-   aExcludeSubfields(UBound(aExcludeSubfields$)-1) = sSubfield
-End Function
-
-'************************************************
-'Check if a subfield is in the list of exclusions
-'************************************************
-
-Function IsExcluded(sSubfield As String) As Integer
-   If Len(sSubfield) = 3 Then
-      sSubfield = sSubfield & "a"
-   End If
-   For i = 0 to UBound(aExcludeSubfields$)
-      bExcluded = True
-      sExclude_i = aExcludeSubfields(i)
-      For j = 1 to 4
-         If (Mid(sExclude_i,j,1) <> Mid(sSubField,j,1) And (j = 4 Or Mid(sExclude_i,j,1) <> "x")) Then
-            bExcluded = False
-         End If
-      Next j
-      If bExcluded Then
-         IsExcluded = True
-         Exit Function
-      End If
-   Next i
-   IsExcluded = False
-End Function
-
-'********************************************************************
-'Extract substring with given start position and length, but treating 
-'Unicode NCRs as single characters
-'********************************************************************
-
-Function GetUnicodeSubstring(sStr As String, iStart As Integer, iLength As Integer) As String
-   iStrLen = Len(sStr)
-   iActualPos = 1
-   iActualLen = 0
-   sSubstring = ""
-   sChar = ""
-   bInEntity = False
-   For i = 1 to iStrLen
-      If Mid(sStr,i,3) = "&#x" Then
-         bInEntity = True
-      ElseIf Mid(sStr,i,1) = ";" Then
-         bInEntity = False
-      End If
-      If iActualPos >= iStart And iActualLen < iLength Then
-         sSubstring = sSubstring & Mid(sStr,i,1)
-         If Not bInEntity Then
-            iActualLen = iActualLen + 1
-         End If
-      End If
-      If Not bInEntity Then
-         iActualPos = iActualPos + 1
-      End If
-   Next i
-   GetUnicodeSubstring = sSubstring
-End Function
-
-'************************************************************************************
-'Retrieve the field where the cursor is located.  Workaround for GetFieldLineUnicode 
-'bug in which Unicode characters are not consistently represented as NCRs
-'*************************************************************************************
- 
-Function GetCurrentField(CS As Object) As String
-
-   'Insert BOM at beginning of field to force all Unicode to appear as numeric entities
-   CS.EndCell
-   CS.InsertText("&#xFEFF;")
-   
-   bSuccess = CS.GetFieldLineUnicode(CS.CursorRow,sFieldX)
-   CS.EndCell
-   CS.Backspace
-   If Not bSuccess Then
-      sField = ""
-   End If
-   
-   'Remove BOM
-   sFieldX = ReplaceAll(sFieldX, "&#xFEFF;","")
-   
-   CS.CopyField   
-   sFieldY = Clipboard.GetText
-      
-   sFieldZ = ""
-   
-   'sFieldX: Version of field from GetFieldLineUnicode (in which characters between x80 and xFF may be wrongly encoded)
-   'sFieldY: Version of field from clipboard (in which Unicode characters appear as ?)
-   'Although these two versions of the field both have problems, they can be merged to produce a valid string.
-   'The following loop iterates through the strings and picks the valid characters from each one.
-   '(sFieldX if the character is a Unicode NCR, or sFieldY if the character differs from sFieldX and is not ?)
-   
-   y = 1
-   For x = 1 to Len(sFieldX)
-      If i <= Len(sFieldX) - 7 And Mid(sFieldX,x,3) = "&#x" Then
-         sFieldZ = sFieldZ & Mid(sFieldX,x,8) 
-         x = x + 7
-      Else
-         If Mid(sFieldX,x,1) <> Mid(sFieldY,y,1) And Mid(sFieldY,y,1) <> "?" Then
-            sFieldZ = sFieldZ & Mid(sFieldY,y,1)
-         Else
-            sFieldZ = sFieldZ & Mid(sFieldX,x,1)
-         End If
-      End If
-      y = y + 1
-   Next x
-   GetCurrentField = sFieldZ
-End Function

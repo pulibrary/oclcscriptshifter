@@ -5,90 +5,52 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 26 January 2026
-'Macro version: 0.3.9
+'Macro last modified: 31 March 2026
+'Macro version: 0.4.0
 
-Declare Function ReplaceAll(sStr As String, sFind As String, sReplace as String) As String
+'$Include: "ScriptShifter!UtilityFunctions"
+
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
 Declare Function Row(iPos As Integer) As Integer
 Declare Function Column(iPos As Integer) As Integer
 Declare Function ControlWidth(iPos As Integer) As Integer
 Declare Function ControlHeight(iPos As Integer) As Integer
-Declare Sub GetLanguageList()
-Declare Function GetJSONField(sJSON As String, sField As String) As String
-Declare Sub AddExclusion(sSubfield as String)
-Declare Sub DeleteExclusion(sSubfield as String)
-Declare Sub SetExclusions(sExclusionList As String)
+Declare Function GetDirectionalityLabel(sDirectCode As String) As String
 
-Global Const sVersion = "v0.3.9"
 Global Const RowHeight = 20
 Global Const ColumnWidth = 50   
 Global Const MarginSize = 10
-Global Const sSSURL = "https://bibframe.org/scriptshifter/"
-Global Const sLangEndpoint = "languages"
-Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sDefaultJSON = "{""lang"":""asian_cyrillic"",""autoselect"":""true"",""capitalize"":""first"",""t_dir"":""auto""," & _
    """exclude"":['1xxe','7xxe','856u','xxxi'],""options"":{}}"
 
 Global sLangCode
 Global sLangLabel
 Global sLangMARC
-Global aLangTable$()
-Global aLangList$()
-Global aExcludeSubfields$()
-Global sCfgLang
-Global sCfgCapitalization
-Global sCfgDirection
-Global sCfgAutoSelect
 Global CS As Object
-Global oHTTP As Object
-Global bSSerror
 
 Sub Main
    On Error Resume Next
    Set CS = GetObject( , "Connex.Client" )
    On Error GoTo 0
    If CS Is Nothing Then Set CS = CreateObject( "Connex.Client" )
-   
-   Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
 
    'Open settings file, or create it if it does not exist
-   ChDir Environ("AppData") & "\OCLC\Connex\Macros"
-   On Error GoTo MakeFile
-   Open sSettingsFilename For Input As #1
-ReadJSON:
-   sJSON = ""
-   While Not EOF(1)
-      sChar = Input$(1,#1)
-      sJSON = sJSON & sChar
-   Wend
-   If InStr(1,sJSON,"{") = 0 Then
-      GoTo MakeFile
+      'Load Settings file, or launch settings macro if none exists
+LoadSettings:
+   sJSON = LoadSettings()
+   If sJSON = "**ERROR_READFILE**" Then
+      Open sSettingsFilename For Output As #1
+      Print #1, sDefaultJSON
+      Close #1
+      GoTo LoadSettings
    End If
-   'Load defaults form settings file
-   sCfgLang = GetJSONField(sJSON,"lang")
-   sCfgCapitalization = GetJSONField(sJSON, "capitalize")
-   sCfgDirection = GetJSONField(sJSON, "t_dir")
-   sCfgAutoSelect = GetJSONField(sJSON, "autoselect")
-   sCfgExclusions = GetJSONField(sJSON, "exclude")
-   Close #1
-   Goto LoadData
-MakeFile:
-   Close #1
-   Open sSettingsFilename For Output As #1
-   Print #1, sDefaultJSON
-   Close #1
-   Open sSettingsFilename For Input As #1
-   GoTo ReadJSON
 
-
-LoadData:   
    sLangMARC = ""
    bSuccess = CS.GetFixedField("Lang",sLangMARC)
 
    bSSerror = False
-   Call GetLanguageList
-   If(bSSerror) Then
+   sSuccess = GetLanguageList
+   If(sSuccess <> "**SUCCESS**") Then
       Exit Sub
    End If
 
@@ -150,6 +112,7 @@ LoadData:
       OptionButton Column(4),Row(4),ControlWidth(1),ControlHeight(1),"All words"
 
       Text Column(1), Row(5),ControlWidth(2),ControlHeight(1), "Exclude Subfields:"
+      Text Column(1), Row(6),ControlWidth(2),ControlHeight(3), "Field followed by subfield, with 'x' as wildcard, e.g. '856u' or '7xxe'."
       TextBox Column(2), Row(5), ControlWidth(1), ControlHeight(1),.ExcludeText
       Button Column(3), Row(5), ControlWidth(1), ControlHeight(1),"Add"
       Button Column(3), Row(6), ControlWidth(1), ControlHeight(1),"Delete"
@@ -157,7 +120,7 @@ LoadData:
       
       OKButton  Column(1), Row(8), ControlWidth(1), ControlHeight(1)
       CancelButton  Column(2), Row(8), ControlWidth(1), ControlHeight(1)
-      Text Column(5),Row(8),ControlWidth(1),ControlHeight(1),sVersion
+      Text Column(4),Row(8),ControlWidth(2),ControlHeight(1),GetVersionStatement
       
    End Dialog
    Dim dlg as SSDialog    
@@ -200,89 +163,24 @@ On Error Resume Next
 
    sJSON = "{""lang"":""" & sSelectedLang & """,""autoselect"":""" & sAutoSelect & """,""capitalize"":""" & _ 
       sCapitalization & """,""t_dir"":""" & sDirection & """,""exclude"":" & sExclusionList & ",""options"":{}}"
-   'MsgBox sJSON
    Open sSettingsFilename For Output As #1
    Print #1, sJSON
    Close #1
 End Sub
 
-'*************************************
-'Replace all instances of a substring
-'*************************************
+'****************************************************************
+'Convert directionality code to a string to display in the dialog
+'****************************************************************
 
-Function ReplaceAll(sStr As String, sFind As String, sReplace As String) As String
-   place = 1
-   If InStr(place, sStr, sFind) Then
-      Do While InStr(place, sStr, sFind)
-          place = InStr(place, sStr, sFind)
-          sStr = Left(sStr, place - 1) & sReplace & Mid(sStr, place + Len(sFind))
-          place = place + Len(sReplace)
-      Loop
+Function GetDirectionalityLabel(sDirectCode As String) As String
+   If sDirectCode = "s2r" Then
+      GetDirectionalityLabel = "Script-to-roman only"
+   ElseIf sDirectCode = "r2s" Then
+      GetDirectionalityLabel = "Roman-to-Script only"
+   Else
+      GetDirectionalityLabel = ""
    End If
-   ReplaceAll = sStr
 End Function
-
-'***************************************************************************************
-'Get a current version of the SS language list and populate the in-memory language table
-'***************************************************************************************
-
-Sub GetLanguageList   
-   sURL = sSSURL & sLangEndpoint
-  
-   oHTTP.Open "GET", sURL, False
-   oHTTP.SetRequestHeader "Content-Type", "application/json"
-   oHTTP.Send
-   
-   If (oHTTP.Status <> "200") Then
-      MsgBox "Error connecting to the ScriptShifter service.  Please try again later."
-      bSSerror = True
-      Exit Sub
-   End If
-   
-   sResponse = oHTTP.ResponseText
-   
-   iNextPos = InStr(1,sResponse,"},")
-   iCount = 0
-   While iNextPos > 0 
-      iCount = iCount+1
-      iNextPos = InStr(iNextPos+1,sResponse,"},")
-   Wend
-   
-   ReDim aLangList$(iCount)
-   ReDim aLangTable$(iCount,4)
-   
-   iCount = 0
-   Do 
-      sCurrentLang = sResponse
-      If iNextPos > 0 Then
-         sCurrentLang = Left(sResponse,iNextPos)
-         sResponse = Mid(sResponse,iNextPos+1)
-      End If
-      sCurrentLang = Mid(sCurrentLang, InStr(1,sCurrentLang,Chr(34))+1)
-      sDetails = Mid(sCurrentLang, InStr(1, sCurrentLang, "{"))
-      sCurrentLang = Left(sCurrentLang, InStr(1,sCurrentLang, Chr(34))-1)
-      
-      sLabel = GetJSONField(sDetails,"label")
-      sMARC = GetJSONField(sDetails,"marc_code")      
-      sStoR = GetJSONField(sDetails,"has_s2r")     
-      sRtoS = GetJSONField(sDetails,"has_r2s")
-             
-      sDirectionality = ""
-      If sStoR = "true" And sRtoS = "false" Then
-         sDirectionality = "Script-to-roman only"
-      ElseIf sStoR = "false" And sRtoS = "true" Then
-         sDirectionality = "Roman-to-Script only"
-      End If
-     
-      aLangList(iCount) = sLabel
-      aLangTable$(iCount,0) = sLabel
-      aLangTable$(iCount,1) = sCurrentLang
-      aLangTable$(iCount,2) = sMARC
-      aLangTable$(iCount,3) = sDirectionality
-      iCount = iCount + 1
-      iNextPos = InStr(1,sResponse,"},")
-   Loop While iNextPos > 0
-End Sub
 
 '**********************************
 'Event handler for settings dialog
@@ -295,7 +193,7 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
       If DlgText$("LangBox") <> sLangLabel Then
          DlgValue "LangBox",DlgValue("LangBox")+1
       End If
-      DlgText "Directionality",aLangTable$(DlgValue("LangBox"),3)
+      DlgText "Directionality",GetDirectionalityLabel(aLangTable$(DlgValue("LangBox"),3))
       If sCfgAutoSelect = "true" Then
          DlgValue "AutoSelectLang", 1
       End If
@@ -311,7 +209,7 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
       Select Case DlgItem$
       Case "LangBox" 'update directionality label based on selected language
          sLangCode = aLangTable$(DlgValue(DlgItem$),1)
-         DlgText "Directionality",aLangTable$(DlgValue("LangBox"),3)
+         DlgText "Directionality",GetDirectionalityLabel(aLangTable$(DlgValue("LangBox"),3))
       Case "Add" 'validate and add exclusion
          DialogFunc = True 
          sSubfield = DlgText("ExcludeText")
@@ -345,86 +243,6 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
 End Function
 
 '**********************************************************************
-'The following three functions update the in-memory list of exlcusions 
-'**********************************************************************
-
-Sub SetExclusions(sExclusionList As String)
-   iNextComma = InStr(1,sExclusionList,",")   
-   While iNextComma > 0  
-      sNextExclusion = Left(sExclusionList,iNextComma-1)      
-      AddExclusion(sNextExclusion)
-      sExclusionList = Mid(sExclusionList,iNextComma+1)
-      iNextComma = InStr(1,sExclusionList,",")  
-   Wend
-   If sExclusionList <> "" Then
-      AddExclusion(sExclusionList)
-   End If
-End Sub
-
-Sub AddExclusion(sSubfield as String) 
-   sSubfield = ReplaceAll(sSubfield,"'","")
-   Dim aCurrentExclusions()
-   ReDim aCurrentExclusions(UBound(aExcludeSubfields$))
-   For i = 0 to UBound(aExcludeSubfields$)
-      If sSubfield = aExcludeSubfields(i) Then
-         Exit Sub
-      End If
-      aCurrentExclusions(i) = aExcludeSubfields(i)
-   Next i
-   
-   ReDim aExcludeSubfields(UBound(aExcludeSubfields$)+1)
-   For i = 0 to UBound(aCurrentExclusions)
-      aExcludeSubfields(i) = aCurrentExclusions(i)
-   Next i   
-   aExcludeSubfields(UBound(aExcludeSubfields$)-1) = sSubfield
-End Sub
-
-Sub DeleteExclusion(sSubfield as String)
-   Dim aCurrentExclusions()
-   ReDim aCurrentExclusions(UBound(aExcludeSubfields$)-1)
-   j  = 0
-   For i = 0 to UBound(aExcludeSubfields$)
-      If sSubfield <> aExcludeSubfields(i) Then
-         aCurrentExclusions(j) = aExcludeSubfields(i)
-         j = j + 1
-      End If
-   Next i
-   
-   ReDim aExcludeSubfields(UBound(aExcludeSubfields$)-1)
-   For i = 0 to UBound(aCurrentExclusions)
-      aExcludeSubfields(i) = aCurrentExclusions(i)
-   Next i   
-End Sub
-
-'*****************************************************************************
-'Extracts the value corresponding to a JSON field name in the provided string
-'*****************************************************************************
-
-Function GetJSONField(sJSON As String, sField As String) As String
-   iLoc = InStr(1,sJSON, Chr(34) & sField & Chr(34))
-   sStr = sJSON
-   If iLoc > 0 Then
-      sStr = Mid(sStr,iLoc+Len(sField)+3)
-      sFirstChar = Left(sStr,1)
-      sStr = Mid(sStr,2)
-      If sFirstChar = Chr(34) Then
-         sStr = Left(sStr,InStr(1,sStr,Chr(34))-1)
-      ElseIf sFirstChar = "[" Then
-         sStr = Left(sStr,InStr(1,sStr,"]")-1)
-      ElseIf InStr(1,sStr,",") > 0 Then
-         sStr = sFirstChar & Left(sStr,InStr(1,sStr,",")-1)
-      ElseIf InStr(1,sStr,"}") > 0 Then
-         sStr = sFirstChar & Left(sStr,InStr(1,sStr,"}")-1)
-      Else
-         sStr = sFirstChar & sStr
-      End If
-      GetJSONField = sStr
-   Else
-      GetJSONField = ""
-   End If
-End Function
-
-'**********************************************************************
 'These functions return the position and size of various 'cells' in the 
 'dialog 'grid' based on predefined global variables.  This simplifies
 'the parameters used in the design of the main dialog 
@@ -445,4 +263,4 @@ End Function
 Function ControlHeight(iPos As Integer) As Integer
    ControlHeight = CInt((MarginSize*(iPos-1) + RowHeight*iPos)*0.8)
 End Function
-   
+  
