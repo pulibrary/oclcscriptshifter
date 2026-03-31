@@ -1,6 +1,6 @@
 # ScriptShifter Macro for OCLC Connexion Client
 
-This OCLC Connexion macro uses the Library of Congress "ScriptShifter" service (https://bibframe.org/scriptshifter) to convert between scripts and create parallel fields in WorldCat records.  The installer can be downloaded here: 
+This OCLC Connexion macro uses the Library of Congress "ScriptShifter" service (https://bibframe.org/scriptshifter) to convert between scripts and create parallel fields in WorldCat bibliographic records.  The installer can be downloaded here: 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
@@ -30,6 +30,8 @@ The following can be done for any or all of these macros:
 - Select "Tools > Keymaps...". In the "Select Commands for Category" box at the top of the window, select "Macros". Double-click "ScriptShifter", then click the desired macro.
 - Click in "Press New Shortcut Key" and press the keyboard shortcut you would like to assign to this macro.
 - Make sure that "Shortcut Key Assigned to:" is blank, then click "Assign" and then "OK".
+
+(Note: There is another macro called "ScriptShifter!UtilityFunctions" that contains common code referenced by the other macros.  However, this is not meant to be run directly, and so should not be mapped to a User Tool or keyboard shortcut.)
 
 ## Settings
 
