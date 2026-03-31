@@ -31,6 +31,8 @@ The following can be done for any or all of these macros:
 - Click in "Press New Shortcut Key" and press the keyboard shortcut you would like to assign to this macro.
 - Make sure that "Shortcut Key Assigned to:" is blank, then click "Assign" and then "OK".
 
+(Note: There is another macro called "ScriptShifter!UtilityFunctions" that contains common code referenced by the other macros.  However, this is not meant to be run directly, and so should not be mapped to a User Tool or keyboard shortcut.)
+
 ## Settings
 
 <img src="./img/settings.jpg"/>
