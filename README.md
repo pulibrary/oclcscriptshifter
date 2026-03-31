@@ -10,7 +10,7 @@ Alternatively, you can download this macro book file to your macros directory (e
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/ScriptShifter.mbk">ScriptShifter.mbk</a>
 
-This macro can be used for any script supported by ScriptShifter.  However, as shown below, there are some special customizations for Korean.
+This macro can be used for any script supported by ScriptShifter.  However, as shown below, there are some special customizations for Korean and Chinese.
 
 ## Configuration
 
@@ -48,6 +48,12 @@ If part of a field contains text that you do not wish to convert, simply highlig
 ## Korean name conversion
 
 ScriptShifter has a special setting for Korean names. The 'Convert' macro is used to format romanized Korean names for fields 100a, 600a, 700a, and 800a.  For other fields (such as 245c), formatting Korean names is a two-step process. First, convert the entire field using the 'Convert' macro as you normally would.  This will generate the parallel romanized field.  Second, highlight the Korean name(s) in the non-Roman field, then run the 'KoreanName' macro.  This will reconvert the highlighted text using the Korean name setting, replacing the romanized text in the parallel field.
+
+## Chinese name/number customizations
+
+Chinese pinyin text found in 100a, 600a, 700a, and 800a will be formatted as a personal name (e.g. "Wen, Daoming").  To format text in other fields as personal or proper names, see the <a href="https://github.com/pulibrary/oclcpinyin?tab=readme-ov-file#extra-macros-for-manual-adjustments">PinyinExtras</a> macro book.  These macros should be run after "ScriptShifter!Convert".  
+
+By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二十三" -> "yi bai er shi san"), but the "ConvertNumbers" macro in "PinyinExtras" can be run afterwards to convert the pinyin numbers to Arabic numerals, if desired (e.g. "yi bai er shi san" -> "123").
 
 ## Known issues
 - If the field being converted is a controlled heading, it will be temporarily uncontrolled while the conversion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
