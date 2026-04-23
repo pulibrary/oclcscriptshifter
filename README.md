@@ -1,6 +1,6 @@
 # ScriptShifter Macro for OCLC Connexion Client
 
-This OCLC Connexion macro uses the Library of Congress "ScriptShifter" service (https://bibframe.org/scriptshifter) to convert between scripts and create parallel fields in WorldCat bibliographic records.  The installer can be downloaded here: 
+This OCLC Connexion macro uses the Library of Congress [ScriptShifter](https://bibframe.org/scriptshifter) service to convert between scripts and create parallel fields in WorldCat bibliographic records.  The installer can be downloaded here: 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
@@ -64,4 +64,4 @@ By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二�
 
 ## Acknowledgments
 
-Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Minyoung Chung, Flora Kim, Hyoungbae Lee, Michael Meerson, and Yang Wang, as well as Stefano Cossu, Jenna Moon, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
+Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Minyoung Chung, Flora Kim, Hyoungbae Lee, Michael Meerson, Charles Riley, and Yang Wang, as well as Stefano Cossu, Jenna Moon, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
