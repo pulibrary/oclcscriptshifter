@@ -53,7 +53,7 @@ ScriptShifter has a special setting for Korean names. The 'Convert' macro is use
 
 ## Chinese name/number customizations
 
-Chinese pinyin text found in 100a, 600a, 700a, and 800a will be formatted as a personal name (e.g. "Wen, Daoming").  To format text in other fields as personal or proper names, see the <a href="https://github.com/pulibrary/oclcpinyin?tab=readme-ov-file#extra-macros-for-manual-adjustments">PinyinExtras</a> macro book.  These macros should be run after "ScriptShifter!Convert".  
+Chinese pinyin text found in 100a, 600a, 700a, and 800a will be formatted as a personal name (e.g. "温道明" -> "Wen, Daoming").  To format text in other fields as personal or proper names, see the <a href="https://github.com/pulibrary/oclcpinyin?tab=readme-ov-file#extra-macros-for-manual-adjustments">PinyinExtras</a> macro book.  These macros should be run after "ScriptShifter!Convert".  
 
 By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二十三" -> "yi bai er shi san"), but the "ConvertNumbers" macro in "PinyinExtras" can be run afterwards to convert the pinyin numbers to Arabic numerals, if desired (e.g. "yi bai er shi san" -> "123").
 
