@@ -60,6 +60,7 @@ By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二�
 ## Known issues
 - If the field being converted is a controlled heading, it will be temporarily uncontrolled while the conversion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
 - There is a known bug in OCLC Connexion in which macro dialog boxes may not appear in front of the Connexion window.  If you try to open the settings panel (which will open automatically the first time you run the macro), it may appear that nothing happens.  If this is the case, check the Windows task bar for a flashing icon.  Clicking it should bring up the settings dialog.
+- If you receive an error that the macro cannot be loaded, check that the settings dialog is not still open.  (It is easy to lose it behind other windows, but if it is open, it may prevent other macros from running.)
 - Even if the capitalization setting is set to "first word" or "all words", words may not be capitalized if they are directly preceded by a punctuation mark (like a parenthesis, bracket, or quotation mark).
 
 ## Acknowledgments
