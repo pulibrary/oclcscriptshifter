@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 31 March 2026
-'Macro version: 0.4.0
+'Macro last modified: 23 April 2026
+'Macro version: 1.0.0
 
 '$Include: "ScriptShifter!UtilityFunctions"
 
@@ -120,6 +120,7 @@ LoadSettings:
       
       OKButton  Column(1), Row(8), ControlWidth(1), ControlHeight(1)
       CancelButton  Column(2), Row(8), ControlWidth(1), ControlHeight(1)
+      Button Column(3),Row(8),ControlWidth(1),ControlHeight(1),"Help"
       Text Column(4),Row(8),ControlWidth(2),ControlHeight(1),GetVersionStatement
       
    End Dialog
@@ -207,6 +208,9 @@ Function DialogFunc%(DlgItem$, Action%, SuppValue&)
       End If
    Case 2 ' Value changing or button pressed
       Select Case DlgItem$
+      Case "Help"
+         DialogFunc = True
+         Shell("explorer """ & sGithubRepoURL & """")
       Case "LangBox" 'update directionality label based on selected language
          sLangCode = aLangTable$(DlgValue(DlgItem$),1)
          DlgText "Directionality",GetDirectionalityLabel(aLangTable$(DlgValue("LangBox"),3))

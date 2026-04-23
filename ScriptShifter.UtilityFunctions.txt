@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 11 March 2026
-'Macro last modified: 31 March 2026
-'Macro version: 0.4.0
+'Macro last modified: 23 April 2026
+'Macro version: 1.0.0
 
 Declare Function AddExclusion(sSubfield as String)
 Declare Function ConvertHTMLEntities(sStr As String) As String
@@ -27,13 +27,14 @@ Declare Function ReplaceAll(sStr As String, sFind As String, sReplace As String,
 Declare Sub SetExclusions(sExclusionList As String)
 
 Global Const sConnectionError = "Error connecting to the ScriptShifter service.  Please try again later."
-Global Const sGithubURL = "https://api.github.com/repos/pulibrary/oclcscriptshifter/releases/latest"
+Global Const sGithubRepoURL = "https://github.com/pulibrary/oclcscriptshifter#readme"
+Global Const sGithubUpdateURL = "https://api.github.com/repos/pulibrary/oclcscriptshifter/releases/latest"
 Global Const sLangEndpoint = "languages"
 Global Const sMacrosDir = "\OCLC\Connex\Macros"
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sTransEndpoint = "trans"
-Global Const sVersion = "v0.4.0"
+Global Const sVersion = "v1.0.0"
 Global Const sWinHTTP = "WinHttp.WinHttpRequest.5.1"
 
 Global aExcludeSubfields$()
@@ -329,7 +330,7 @@ Function GetVersionStatement() As String
       oHTTP = CreateObject(sWinHTTP)
    End If
    
-   oHTTP.Open "GET",sGithubURL,False
+   oHTTP.Open "GET",sGithubUpdateURL,False
    oHTTP.SetRequestHeader "Content-Type","application/json"
    oHTTP.Send
    

@@ -6,7 +6,7 @@
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
 'Macro last modified: 30 March 2026
-'Macro version: 0.4.0
+'Macro version: 1.0.0
 
 '$Include: "ScriptShifter!UtilityFunctions"
 
