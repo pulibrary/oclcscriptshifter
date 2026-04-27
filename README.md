@@ -66,7 +66,7 @@ By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二�
 
 ## Reporting Bugs and Making Suggestions
 
-If you notice any inaccuracies in the output, first check if the ScriptShifter website itself (https://bibframe.org/scriptshifter/) generates the same results.  If so, click the "Suggest Improvement" button, which will allow you to fill out a form to suggest a better transliteration.  To report bugs or make suggestions about the OCLC Connexion macro, use the "Issues" tab at the top of this page.
+If you notice any inaccuracies in the output, first check if the ScriptShifter website itself (https://bibframe.org/scriptshifter/) generates the same results.  If so, click the "Suggest Improvement" button, which will allow you to fill out a form to suggest a better transliteration. (This form will be submitted to the ScriptShifter developers at the Library of Congress.) To report bugs or make suggestions about the OCLC Connexion macro, use the "Issues" tab at the top of this page.
 
 ## Acknowledgments
 
