@@ -70,4 +70,4 @@ If you notice any inaccuracies in the output, first check if the ScriptShifter w
 
 ## Acknowledgments
 
-Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Minyoung Chung, Flora Kim, Hyoungbae Lee, Michael Meerson, Charles Riley, and Yang Wang, as well as Stefano Cossu, Jenna Moon, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
+Many thanks to those who helped with testing this plugin in various languages: Alim Alp, Minyoung Chung, Flora Kim, Seong Heon Lee, Hyoungbae Lee, Michael Meerson, Charles Riley, and Yang Wang, as well as Stefano Cossu, Jenna Moon, Jessalyn Zoom, and the team at the Library of Congress that has made this collaboration possible.
