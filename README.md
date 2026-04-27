@@ -1,6 +1,6 @@
 # ScriptShifter Macro for OCLC Connexion Client
 
-This OCLC Connexion macro uses the Library of Congress [ScriptShifter](https://bibframe.org/scriptshifter) service to convert between scripts and create parallel fields in WorldCat bibliographic records.  The installer can be downloaded here: 
+This OCLC Connexion macro uses the Library of Congress [ScriptShifter](https://bibframe.org/scriptshifter) service to convert between scripts and create parallel fields in WorldCat bibliographic records.  (A full list of supported languages can be found [here](https://github.com/lcnetdev/scriptshifter/blob/main/doc/supported_scripts.md).  The installer can be downloaded from the folliwing link: 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
@@ -24,7 +24,8 @@ The following can be done for any or all of these macros:
 **To add a macro to the toolbar**
 - Select "Tools > User Tools > Assign...". At the top of the screen, click "Macros". In the list box on the left side of the window, select the desired macro.
 - Under the "Select New User Tool" menu, select a tool that is not yet assigned to another function. Make note of the tool number, then click "Assign Tool", and then "OK".
-- Select "Tools > Toolbar Editor...". Scroll down to "ToolsUserToolsX", where X is the tool number that you just assigned to the macro. Drag the icon to the desired location on the toolbar.
+- At this point, you can run the macro from the "User Tools" menu.  However, if you would also like to create a toolbar button:
+  - Select "Tools > Toolbar Editor...". Scroll down to "ToolsUserToolsX", where X is the tool number that you just assigned to the macro. Drag the icon to the desired location on the toolbar.
   
 **To assign a keyboard shortcut**
 - Select "Tools > Keymaps...". In the "Select Commands for Category" box at the top of the window, select "Macros". Double-click "ScriptShifter", then click the desired macro.
@@ -62,6 +63,10 @@ By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二�
 - There is a known bug in OCLC Connexion in which macro dialog boxes may not appear in front of the Connexion window.  If you try to open the settings panel (which will open automatically the first time you run the macro), it may appear that nothing happens.  If this is the case, check the Windows task bar for a flashing icon.  Clicking it should bring up the settings dialog.
 - If you receive an error that the macro cannot be loaded, check that the settings dialog is not still open.  (It is easy to lose it behind other windows, but if it is open, it may prevent other macros from running.)
 - Even if the capitalization setting is set to "first word" or "all words", words may not be capitalized if they are directly preceded by a punctuation mark (like a parenthesis, bracket, or quotation mark).
+
+## Reporting Bugs and Making Suggestions
+
+If you notice any inaccuracies in the output, first check if the ScriptShifter website itself (https://bibframe.org/scriptshifter/) generates the same results.  If so, click the "Suggest Improvement" button, which will allow you to fill out a form to suggest a better transliteration.  To report bugs or make suggestions about the OCLC Connexion macro, use the "Issues" tab at the top of this page.
 
 ## Acknowledgments
 
