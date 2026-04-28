@@ -58,6 +58,8 @@ Chinese pinyin text found in 100a, 600a, 700a, and 800a will be formatted as a p
 
 By default, ScriptShifter converts Chinese numerals to pinyin (e.g. "一百二十三" -> "yi bai er shi san"), but the "ConvertNumbers" macro in "PinyinExtras" can be run afterwards to convert the pinyin numbers to Arabic numerals, if desired (e.g. "yi bai er shi san" -> "123").
 
+Note that unlike the KoreanName macro, these macros for Chinese are run after highlighting the pinyin text, not the original Chinese characters.
+
 ## Known issues
 - If the field being converted is a controlled heading, it will be temporarily uncontrolled while the conversion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
 - There is a known bug in OCLC Connexion in which macro dialog boxes may not appear in front of the Connexion window.  If you try to open the settings panel (which will open automatically the first time you run the macro), it may appear that nothing happens.  If this is the case, check the Windows task bar for a flashing icon.  Clicking it should bring up the settings dialog.
