@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 11 March 2026
-'Macro last modified: 23 April 2026
-'Macro version: 1.0.0
+'Macro last modified: 29 April 2026
+'Macro version: 1.0.1
 
 Declare Function AddExclusion(sSubfield as String)
 Declare Function ConvertHTMLEntities(sStr As String) As String
@@ -25,6 +25,7 @@ Declare Function LoadSettings() As String
 Declare Function QueryScriptShifter(sReqJSON As String) As String
 Declare Function ReplaceAll(sStr As String, sFind As String, sReplace As String, bCaseSensitive As Integer) As String
 Declare Sub SetExclusions(sExclusionList As String)
+Declare Function SplitDoubleDiacritics(sText As String) as String
 
 Global Const sConnectionError = "Error connecting to the ScriptShifter service.  Please try again later."
 Global Const sGithubRepoURL = "https://github.com/pulibrary/oclcscriptshifter#readme"
@@ -34,7 +35,7 @@ Global Const sMacrosDir = "\OCLC\Connex\Macros"
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sTransEndpoint = "trans"
-Global Const sVersion = "v1.0.0"
+Global Const sVersion = "v1.0.1"
 Global Const sWinHTTP = "WinHttp.WinHttpRequest.5.1"
 
 Global aExcludeSubfields$()
@@ -498,3 +499,38 @@ Sub SetExclusions(sExclusionList As String)
    End If
 End Sub
 
+'****************************************************************************
+'Replace double diacritics with separate characters for left and right halves
+'****************************************************************************
+
+Function SplitDoubleDiacritics(sText As String) As String
+   Dim aDiacritics(2,3) As String
+   
+   aDiacritics(0,0) = "&#x0361;"
+   aDiacritics(0,1) = "&#xFE20;"
+   aDiacritics(0,2) = "&#xFE21;"
+   aDiacritics(1,0) = "&#x0360;"
+   aDiacritics(1,1) = "&#xFE22;"
+   aDiacritics(1,2) = "&#xFE23;"
+   
+   
+   For i = 0 to UBound(aDiacritics) - 1
+      place = 1
+      If InStr(place, sText, aDiacritics(i,0)) Then
+         Do While InStr(place, sText, aDiacritics(i,0))
+            place = InStr(place, sText, aDiacritics(i,0))
+            sNextChar = Mid(sText, place + 8, 3)
+            If sNextChar = "&#x" Then
+               sNextChar = Mid(sText, place + 8, 8)
+            Else
+               sNextChar = Mid(sText, place + 8, 1)
+            End If
+            sText = Left(sText, place - 1) & aDiacritics(i,1) & sNextChar & aDiacritics(i,2) + Mid(sText, place + 8 + Len(sNextChar))
+            place = place + 16 + Len(sNextChar)
+         Loop
+      End If
+   Next i
+   
+   SplitDoubleDiacritics = sText
+End Function
+ 

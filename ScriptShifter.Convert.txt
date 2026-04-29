@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 30 March 2026
-'Macro version: 1.0.0
+'Macro last modified: 28 April 2026
+'Macro version: 1.0.1
 
 '$Include: "ScriptShifter!UtilityFunctions"
 
@@ -293,7 +293,6 @@ AppendResponse:
          sResponse = ReplaceAll(sResponse,"&#x0301;","",True)
       End If
 
-
       'Splice excluded text into response
       If sSubfieldTag <> "" Then
          sResponse = sDelimiterHTML & sSubfieldTag & " " & Trim(sResponse)
@@ -318,6 +317,8 @@ AppendResponse:
    Loop
 
    sConvertedFields = ConvertLatin1(sConvertedFields)
+
+   sConvertFields = SplitDoubleDiacritics(sConvertedFields)
   
    If sConvDirection = "s2r" Then
       bool = CS.AddFieldLine(CS.CursorRow + 1, sConvertedFields)

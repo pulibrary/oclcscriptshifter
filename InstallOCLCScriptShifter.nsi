@@ -17,6 +17,7 @@ InstallDir "$APPDATA\OCLC\Connex\Macros"
 
 ; Installer Pages
 !insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
