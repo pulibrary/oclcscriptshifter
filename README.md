@@ -21,7 +21,7 @@ The macro book contains 3 macros:
 - ScriptShifter!Settings: Open settings dialog
 - ScriptShifter!KoreanName: Re-convert Korean script using special setting for names
 
-The following can be done for any or all of these macros:
+It is recommended to launch these macros by assigning them to a User Tool or Keymap. (Launching them directly from the Tools > Macros dialog may cause an error in cases where text is selected in advance.)  The following can be done for any or all of these macros:
 
 **To add a macro to the toolbar**
 - Select "Tools > User Tools > Assign...". At the top of the screen, click "Macros". In the list box on the left side of the window, select the desired macro.
