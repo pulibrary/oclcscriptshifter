@@ -12,7 +12,7 @@ Alternatively, you can download this macro book file to your macros directory (f
 
 ### Using the macro with Connexion v2.63
 
-The macro is compatible with both Connexion versions 2.63 and 3.1.  However, using it with v2.63 may involve some extra configuration steps.  Connexion v2.63 stores its macros in `C:\Program Files (x86)\OCLC\Connexion\Program\Macros`.  Some institutions may restrict modifying this directory, so you may need to ask your IT department to download the MBK file for you.  The macro also requires that you have read/write access to the directory (which is not necessarily true of other OCLC macros that may be installed there).
+The macro is compatible with both Connexion versions 2.63 and 3.1.  However, using it with v2.63 may involve some extra configuration steps.  Connexion v2.63 stores its macros in `C:\Program Files (x86)\OCLC\Connexion\Program\Macros`.  Some institutions restrict modifying this directory, so you may need to ask your IT department to download the MBK file for you.  The macro also requires that you have read/write access to the directory (which is not necessarily true of other OCLC macros that may be installed there).
 
 ## Configuration
 
