@@ -1,6 +1,6 @@
 # ScriptShifter Macro for OCLC Connexion Client
 
-This OCLC Connexion macro book uses the Library of Congress [ScriptShifter](https://bibframe.org/scriptshifter) service to convert between scripts and create parallel fields in WorldCat bibliographic records.  (A full list of supported languages can be found [here](https://github.com/lcnetdev/scriptshifter/blob/main/doc/supported_scripts.md).)  The macros can be used for any script supported by ScriptShifter.  However, as shown below, there are some special customizations for Korean and Chinese.The installer can be downloaded from the folliwing link: 
+This OCLC Connexion macro book uses the Library of Congress [ScriptShifter](https://bibframe.org/scriptshifter) service to convert between scripts and create parallel fields in WorldCat bibliographic records.  The macros can be used for any script supported by ScriptShifter.  (A full list of supported languages can be found [here](https://github.com/lcnetdev/scriptshifter/blob/main/doc/supported_scripts.md).)  The installer can be downloaded from the folliwing link: 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
