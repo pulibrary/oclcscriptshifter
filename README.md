@@ -1,6 +1,6 @@
 # ScriptShifter Macro for OCLC Connexion Client
 
-This OCLC Connexion macro uses the Library of Congress [ScriptShifter](https://bibframe.org/scriptshifter) service to convert between scripts and create parallel fields in WorldCat bibliographic records.  (A full list of supported languages can be found [here](https://github.com/lcnetdev/scriptshifter/blob/main/doc/supported_scripts.md).)  The installer can be downloaded from the folliwing link: 
+This OCLC Connexion macro book uses the Library of Congress [ScriptShifter](https://bibframe.org/scriptshifter) service to convert between scripts and create parallel fields in WorldCat bibliographic records.  (A full list of supported languages can be found [here](https://github.com/lcnetdev/scriptshifter/blob/main/doc/supported_scripts.md).)  The macros can be used for any script supported by ScriptShifter.  However, as shown below, there are some special customizations for Korean and Chinese.The installer can be downloaded from the folliwing link: 
 
 <a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/InstallOCLCScriptShifter.exe">InstallOCLCScriptShifter.exe</a>
 
@@ -13,10 +13,6 @@ Alternatively, you can download this macro book file to your macros directory (f
 ### Using the macro with Connexion v2.63
 
 The macro is compatible with both Connexion versions 2.63 and 3.1.  However, using it with v2.63 may involve some extra configuration steps.  Connexion v2.63 stores its macros in `C:\Program Files (x86)\OCLC\Connexion\Program\Macros`.  Some institutions may restrict modifying this directory, so you may need to ask your IT department to download the MBK file for you.  The macro also requires that you have read/write access to the directory (which is not necessarily true of other OCLC macros that may be installed there).
-
-<a href="https://github.com/pulibrary/oclcscriptshifter/releases/latest/download/ScriptShifter.mbk">ScriptShifter.mbk</a>
-
-This macro can be used for any script supported by ScriptShifter.  However, as shown below, there are some special customizations for Korean and Chinese.
 
 ## Configuration
 
