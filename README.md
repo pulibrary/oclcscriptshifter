@@ -21,7 +21,7 @@ The macro book contains 3 macros:
 - ScriptShifter!Settings: Open settings dialog
 - ScriptShifter!KoreanName: Re-convert Korean script using special setting for names
 
-It is recommended to launch these macros by assigning them to a User Tool or Keymap. (Launching them directly from the Tools > Macros dialog may cause an error in cases where text is selected in advance.)  The following can be done for any or all of these macros:
+It is recommended to launch these macros by assigning them to a User Tool or Keymap. (Launching them directly from the "Tools > Macros" dialog may cause an error in cases where text is selected in advance.)  The following can be done for any or all of these macros:
 
 **To add a macro to the toolbar**
 - Select "Tools > User Tools > Assign...". At the top of the screen, click "Macros". In the list box on the left side of the window, select the desired macro.
@@ -65,6 +65,7 @@ Note that unlike the KoreanName macro, these macros for Chinese are run after hi
 ## Known issues
 - If the field being converted is a controlled heading, it will be temporarily uncontrolled while the conversion is being performed, then re-controlled afterwards.  If the field was partially controlled, Connexion will pop up a dialog asking whether a fully or partially controlled heading should be used.
 - There is a known bug in OCLC Connexion in which macro dialog boxes may not appear in front of the Connexion window.  If you try to open the settings panel (which will open automatically the first time you run the macro), it may appear that nothing happens.  If this is the case, check the Windows task bar for a flashing icon.  Clicking it should bring up the settings dialog.
+- As noted above, it is not recommended to launch the macros directly from the "Tools > Macros" dialog, as this dialog can interfere with the detection of the selected text, and can cause errors in the Convert or KoreanName macros.  These issues do not occur when launching the macros using a User Tool or Keymap.
 - If you receive an error that the macro cannot be loaded, check that the settings dialog is not still open.  (It is easy to lose it behind other windows, but if it is open, it may prevent other macros from running.)
 - Even if the capitalization setting is set to "first word" or "all words", words may not be capitalized if they are directly preceded by a punctuation mark (like a parenthesis, bracket, or quotation mark).
 
