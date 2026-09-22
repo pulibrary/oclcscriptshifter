@@ -12,7 +12,7 @@
 
 Declare Function DialogFunc%(DlgItem$, Action%, SuppValue&)
 Declare Function Row(iPos As Integer) As Integer
-Declare Function Column(iPos As Integer) As Intaeger
+Declare Function Column(iPos As Integer) As Integer
 Declare Function ControlWidth(iPos As Integer) As Integer
 Declare Function ControlHeight(iPos As Integer) As Integer
 Declare Function GetDirectionalityLabel(sDirectCode As String) As String
