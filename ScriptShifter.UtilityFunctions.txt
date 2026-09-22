@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 11 March 2026
-'Macro last modified: 29 April 2026
-'Macro version: 1.0.1
+'Macro last modified: 22 September 2026
+'Macro version: 1.0.2
 
 Declare Function AddExclusion(sSubfield as String)
 Declare Function ConvertHTMLEntities(sStr As String) As String
@@ -35,7 +35,7 @@ Global Const sMacrosDir = "\OCLC\Connex\Macros"
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sTransEndpoint = "trans"
-Global Const sVersion = "v1.0.1"
+Global Const sVersion = "v1.0.2"
 Global Const sWinHTTP = "WinHttp.WinHttpRequest.5.1"
 
 Global aExcludeSubfields$()
@@ -383,7 +383,14 @@ Function IsRomanized(sString As String) As Integer
       iPos = InStr(iPos,sString,"\u")
       If iPos > 0 Then
          sCode = Mid(sString,iPos+2,4)
-         If (sCode >= "0370" And sCode <= "FE1F") Or (sCode >= "FE30") Then
+         If (sCode >= "0370" And sCode <= "1CFF") Or _
+            (sCode >= "1F00" And sCode <= "1FFF") Or _
+            (sCode >= "2C00" And sCode <= "2C5F") Or _
+            (sCode >= "2C80" And sCode <= "A719") Or _
+            (sCode >= "A800" And sCode <= "AB2F") Or _
+            (sCode >= "AB70" And sCode <= "FAFF") Or _
+            (sCode >= "FB50" And sCode <= "FDFF") Or _
+            (sCode >= "FE30") Then
             IsRomanized = False
             Exit Function
          End If
