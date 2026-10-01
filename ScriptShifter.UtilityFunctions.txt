@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 11 March 2026
-'Macro last modified: 22 September 2026
-'Macro version: 1.0.2
+'Macro last modified: 29 September 2026
+'Macro version: 1.0.3
 
 Declare Function AddExclusion(sSubfield as String)
 Declare Function ConvertHTMLEntities(sStr As String) As String
@@ -35,7 +35,7 @@ Global Const sMacrosDir = "\OCLC\Connex\Macros"
 Global Const sSettingsFilename = "ScriptShifter.Settings.json"
 Global Const sScriptShifterURL = "https://bibframe.org/scriptshifter/"
 Global Const sTransEndpoint = "trans"
-Global Const sVersion = "v1.0.2"
+Global Const sVersion = "v1.0.3"
 Global Const sWinHTTP = "WinHttp.WinHttpRequest.5.1"
 
 Global aExcludeSubfields$()
@@ -404,8 +404,8 @@ End Function
 '*************************************
 
 Function LoadSettings() As String
-   ChDir Environ("AppData") & sMacrosDir
    On Error GoTo Exit_Error
+   ChDir Environ("AppData") & sMacrosDir
 
    sJSON = ""
    Open sSettingsFilename For Input As #1

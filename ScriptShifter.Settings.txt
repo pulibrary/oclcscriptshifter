@@ -5,8 +5,8 @@
 'You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 'Results are derived from the ScriptShifter utility (https://bibframe.org/scriptshifter/)
 'Macro Created: 17 April 2025
-'Macro last modified: 23 April 2026
-'Macro version: 1.0.2
+'Macro last modified: 29 September 2026
+'Macro version: 1.0.3
 
 '$Include: "ScriptShifter!UtilityFunctions"
 
@@ -39,6 +39,11 @@ Sub Main
 LoadSettings:
    sJSON = LoadSettings()
    If sJSON = "**ERROR_READFILE**" Then
+      sFullMacrosDir = Environ("AppData") & sMacrosDir
+      If Dir(sFullMacrosDir,16) = "" Then
+         MkDir sFullMacrosDir
+      End If
+      ChDir sFullMacrosDir
       Open sSettingsFilename For Output As #1
       Print #1, sDefaultJSON
       Close #1
@@ -268,3 +273,4 @@ Function ControlHeight(iPos As Integer) As Integer
    ControlHeight = CInt((MarginSize*(iPos-1) + RowHeight*iPos)*0.8)
 End Function
   
+
